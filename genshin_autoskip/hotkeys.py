@@ -62,6 +62,8 @@ class HotkeyListener(Thread):
                         action = action_for(event.type, event.code, event.value)
                         if action is not None:
                             self._callback(action)
+                except BlockingIOError:
+                    continue
                 except OSError:
                     dev = devices.pop(fd, None)
                     if dev is not None:
@@ -69,3 +71,5 @@ class HotkeyListener(Thread):
                             dev.close()
                         except OSError:
                             pass
+                    if not devices:
+                        print("Warnung: Letzte Tastatur verloren — Hotkeys inaktiv.")

@@ -39,6 +39,7 @@ def main_loop(
         if state.status == "pause":
             sleep(0.5)
             last_press = now()
+            last_break_check = now()
             continue
 
         if window is None:
@@ -82,6 +83,9 @@ def main_loop(
             next_interval = timing.random_press_interval(rng)
 
         sleep(0.05)
+
+    if window is not None:
+        window.close()
 
 
 def _preflight(dry_run: bool) -> list[str]:
@@ -150,6 +154,8 @@ def cli() -> None:
 
     try:
         main_loop(GenshinWindow.find, keyboard, state, Random(), dry_run=args.dry_run)
+    except KeyboardInterrupt:
+        pass
     finally:
         if keyboard is not None:
             keyboard.close()
