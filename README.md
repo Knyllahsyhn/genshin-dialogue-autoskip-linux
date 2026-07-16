@@ -81,10 +81,13 @@ uv sync
 ## TODO
 - Move configration for colors and notifications to env file.
 - Test/include native Wayland support for Genshin running with PROTON_WAYLAND enabled. 
+- Support for ultrawide resolutions. 
+
 ## Development
 
 ```bash
 uv run pytest          # unit tests (run without the game/X/uinput)
 ```
+
 ## License
 This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
