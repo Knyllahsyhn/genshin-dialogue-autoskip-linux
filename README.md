@@ -6,21 +6,21 @@ Linux port of [1hubert/genshin-dialogue-autoskip](https://github.com/1hubert/gen
 
 Reads checkpoint pixels directly from the Genshin window (X11) and presses
 the interaction key (F) through a virtual uinput keyboard. When answer
-options appear, the first option is confirmed automatically.
+options appear, the first option is confirmed automatically. UI uses user-friendly rich terminal output.
 
 ## Requirements
 
 ### System Requirements
 
-    OS: Linux (tested on CachyOS w/ 7.1.3-2 kernel)
-    Display: Genshin running through XWayland, native Wayland not tested 
-    Privileges: user in `input` group
+ - OS: Linux (tested on CachyOS w/ 7.1.3-2 kernel)
+ - Display: Genshin running through XWayland, native Wayland not tested 
+ - Privileges: user in `input` group
 
 ### Software Requirements
 
-    Python 3.11+
-    uv package manager
-    Genshin Impact installed via Steam/Lutris (wine) and running
+ - Python 3.11+
+ - uv package manager
+ - Genshin Impact installed via Steam/Lutris (wine) and running
 
 
 ## One-time setup (permissions)
