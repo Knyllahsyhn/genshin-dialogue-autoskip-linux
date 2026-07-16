@@ -12,7 +12,7 @@ def test_press_interval_stays_within_bounds():
     assert any(v < 0.18 for v in values)
 
 
-def test_should_take_break_is_rare_but_happens():
+def test_should_take_break():
     rng = Random(2)
     results = [timing.should_take_break(rng) for _ in range(1000)]
     hits = sum(results)
