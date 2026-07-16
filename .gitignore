@@ -4,5 +4,4 @@ __pycache__/
 .pytest_cache/
 calibration.png
 # internal working artifacts, kept local only
-docs/superpowers/
-.claude/
+.local
