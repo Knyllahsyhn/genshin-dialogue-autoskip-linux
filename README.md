@@ -1,6 +1,6 @@
 # Genshin Dialogue Autoskip (Linux)
 
-Dialogue auto-skipper for Genshin Impact running under Wine (XWayland) —
+Dialogue auto-skipper for Genshin Impact running under Wine (XWayland) -
 works with Steam/HoYoPlay and Lutris setups.
 Linux port of [1hubert/genshin-dialogue-autoskip](https://github.com/1hubert/genshin-dialogue-autoskip).
 
@@ -52,8 +52,8 @@ uv sync
 
 ## Usage
 
-1. Start Genshin (windowed or borderless mode, 16:9).
-2. **First run — calibration** (once, and again after Genshin updates that
+1. Start Genshin (windowed/borderless/fullscreen, 16:9 only for now).
+2. **First run - calibration** (once, and again after Genshin updates that
    change the UI):
    - Bring the game into a dialogue scene (talk to an NPC).
    - `uv run python -m genshin_autoskip.calibrate`
@@ -71,10 +71,10 @@ uv sync
 
 ## Notes
 
-- Pixel bots formally violate the HoYoverse ToS — use at your own risk.
+- Pixel bots formally violate the HoYoverse ToS - use at your own risk.
   The tool only reads screen pixels and sends key presses; it never touches
   game memory or game files.
-- Roughly every 30 s there is a 4% chance of a "human-like break" (3–8 s) —
+- Roughly every 30 s there is a 4% chance of a "human-like break" (3-8 s) -
   intentional, not a bug.
 - The tool only presses keys while the dialogue autoplay icon is visible;
   loading screens are guarded by a checkpoint pixel.
