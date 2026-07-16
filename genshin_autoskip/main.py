@@ -26,6 +26,7 @@ def main_loop(
     state: AppState,
     rng: Random,
     *,
+    reporter,
     dry_run: bool = False,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], float] = time.perf_counter,
@@ -45,13 +46,14 @@ def main_loop(
         if window is None:
             window = get_window()
             if window is None:
-                print("Genshin window not found — waiting...")
+                reporter.window_missing()
                 sleep(2.0)
                 continue
+            reporter.window_found(window.size())
 
         px = window.read_checkpoints()
         if px is None:
-            print("Window lost — searching again...")
+            reporter.window_lost()
             window.close()
             window = None
             sleep(2.0)
@@ -67,7 +69,7 @@ def main_loop(
             last_break_check = current
             if timing.should_take_break(rng):
                 duration = timing.random_break_duration(rng)
-                print(f"Human-like break: {duration:.1f}s...")
+                reporter.break_started(duration)
                 sleep(duration)
                 last_press = now()
                 next_interval = timing.random_press_interval(rng)
@@ -75,10 +77,10 @@ def main_loop(
 
         if current - last_press >= next_interval:
             if dry_run:
-                label = "confirm option 1" if action == "confirm" else "skip dialogue"
-                print(f"[dry-run] Would now: {label}")
+                reporter.dry_run_action(action)
             else:
                 keyboard.press()
+                reporter.pressed(action)
             last_press = current
             next_interval = timing.random_press_interval(rng)
 
@@ -129,14 +131,16 @@ def cli() -> None:
             print(f"  - {error}")
         sys.exit(1)
 
+    from genshin_autoskip import ui
     from genshin_autoskip.hotkeys import HotkeyListener
     from genshin_autoskip.window import GenshinWindow
 
     state = AppState()
+    reporter = ui.PlainReporter(dry_run=args.dry_run)
 
     def on_action(action: str) -> None:
         state.status = {"run": "run", "pause": "pause", "exit": "exit"}[action]
-        print(f"\n>>> Status: {state.status.upper()}")
+        reporter.status_changed(state.status)
 
     keyboard = None
     if not args.dry_run:
@@ -146,19 +150,17 @@ def cli() -> None:
 
     HotkeyListener(on_action).start()
 
-    print("Genshin Dialogue Auto-Skipper")
-    print("  [F8]  Start    [F9]  Pause    [F12] Quit")
-    if args.dry_run:
-        print("  Mode: DRY-RUN (no keys will be sent)")
-    print("\nWaiting for F8...")
-
-    try:
-        main_loop(GenshinWindow.find, keyboard, state, Random(), dry_run=args.dry_run)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        if keyboard is not None:
-            keyboard.close()
+    with reporter:
+        try:
+            main_loop(
+                GenshinWindow.find, keyboard, state, Random(),
+                reporter=reporter, dry_run=args.dry_run,
+            )
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if keyboard is not None:
+                keyboard.close()
     print("Done.")
 
 

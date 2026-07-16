@@ -34,6 +34,9 @@ class FakeWindow:
     def read_checkpoints(self):
         return self.px
 
+    def size(self):
+        return (1920, 1080)
+
     def close(self):
         pass
 
@@ -52,6 +55,38 @@ class FakeKeyboard:
             self.state.status = "exit"
 
 
+class FakeReporter:
+    def __init__(self):
+        self.events = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    def status_changed(self, status):
+        self.events.append(("status", status))
+
+    def pressed(self, action):
+        self.events.append(("pressed", action))
+
+    def dry_run_action(self, action):
+        self.events.append(("dry", action))
+
+    def break_started(self, duration):
+        self.events.append(("break", duration))
+
+    def window_missing(self):
+        self.events.append(("missing",))
+
+    def window_found(self, size):
+        self.events.append(("found", size))
+
+    def window_lost(self):
+        self.events.append(("lost",))
+
+
 def _stop_after_sleeps(state, clock, limit):
     original = clock.sleep
 
@@ -63,20 +98,29 @@ def _stop_after_sleeps(state, clock, limit):
     return sleep
 
 
+def _run_loop(get_window, keyboard, state, *, dry_run=False, sleep=None, clock=None):
+    clock = clock or FakeClock()
+    reporter = FakeReporter()
+    main_loop(
+        get_window, keyboard, state, Random(42),
+        reporter=reporter, dry_run=dry_run,
+        sleep=sleep or clock.sleep, now=clock.now,
+    )
+    return reporter
+
+
 def test_initial_state_is_pause():
     assert AppState().status == "pause"
 
 
-def test_running_dialogue_triggers_key_presses():
+def test_running_dialogue_triggers_key_presses_and_events():
     state = AppState()
     state.status = "run"
-    clock = FakeClock()
     keyboard = FakeKeyboard(state, stop_after=3)
-    main_loop(
-        lambda: FakeWindow(DIALOG_PX), keyboard, state, Random(42),
-        sleep=clock.sleep, now=clock.now,
-    )
+    reporter = _run_loop(lambda: FakeWindow(DIALOG_PX), keyboard, state)
     assert keyboard.presses == 3
+    assert reporter.events.count(("pressed", "skip")) == 3
+    assert ("found", (1920, 1080)) in reporter.events
 
 
 def test_loading_screen_never_presses():
@@ -84,55 +128,59 @@ def test_loading_screen_never_presses():
     state.status = "run"
     clock = FakeClock()
     keyboard = FakeKeyboard(state, stop_after=1)
-    main_loop(
-        lambda: FakeWindow(LOADING_PX), keyboard, state, Random(42),
-        sleep=_stop_after_sleeps(state, clock, 50), now=clock.now,
+    reporter = _run_loop(
+        lambda: FakeWindow(LOADING_PX), keyboard, state,
+        clock=clock, sleep=_stop_after_sleeps(state, clock, 50),
     )
     assert keyboard.presses == 0
+    assert not [e for e in reporter.events if e[0] in ("pressed", "dry")]
 
 
 def test_pause_never_presses():
     state = AppState()  # stays "pause"
     clock = FakeClock()
     keyboard = FakeKeyboard(state, stop_after=1)
-    main_loop(
-        lambda: FakeWindow(DIALOG_PX), keyboard, state, Random(42),
-        sleep=_stop_after_sleeps(state, clock, 20), now=clock.now,
+    _run_loop(
+        lambda: FakeWindow(DIALOG_PX), keyboard, state,
+        clock=clock, sleep=_stop_after_sleeps(state, clock, 20),
     )
     assert keyboard.presses == 0
 
 
-def test_missing_window_never_presses():
+def test_missing_window_reports_missing():
     state = AppState()
     state.status = "run"
     clock = FakeClock()
     keyboard = FakeKeyboard(state, stop_after=1)
-    main_loop(
-        lambda: None, keyboard, state, Random(42),
-        sleep=_stop_after_sleeps(state, clock, 20), now=clock.now,
+    reporter = _run_loop(
+        lambda: None, keyboard, state,
+        clock=clock, sleep=_stop_after_sleeps(state, clock, 20),
     )
     assert keyboard.presses == 0
+    assert ("missing",) in reporter.events
 
 
-def test_dry_run_never_presses():
+def test_dry_run_reports_but_never_presses():
     state = AppState()
     state.status = "run"
     clock = FakeClock()
     keyboard = FakeKeyboard(state, stop_after=1)
-    main_loop(
-        lambda: FakeWindow(DIALOG_PX), keyboard, state, Random(42),
-        dry_run=True, sleep=_stop_after_sleeps(state, clock, 100), now=clock.now,
+    reporter = _run_loop(
+        lambda: FakeWindow(DIALOG_PX), keyboard, state,
+        dry_run=True, clock=clock, sleep=_stop_after_sleeps(state, clock, 100),
     )
     assert keyboard.presses == 0
+    assert ("dry", "skip") in reporter.events
 
 
-def test_unreadable_window_never_presses():
+def test_unreadable_window_reports_lost():
     state = AppState()
     state.status = "run"
     clock = FakeClock()
     keyboard = FakeKeyboard(state, stop_after=1)
-    main_loop(
-        lambda: FakeWindow(None), keyboard, state, Random(42),
-        sleep=_stop_after_sleeps(state, clock, 20), now=clock.now,
+    reporter = _run_loop(
+        lambda: FakeWindow(None), keyboard, state,
+        clock=clock, sleep=_stop_after_sleeps(state, clock, 20),
     )
     assert keyboard.presses == 0
+    assert ("lost",) in reporter.events
