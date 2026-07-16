@@ -9,11 +9,23 @@ from genshin_autoskip import detector
 # Wine setzt WM_CLASS auf den exe-Namen; Varianten decken Lutris-Setups ab.
 WM_CLASS_TOKENS = ("genshinimpact", "genshin impact", "yuanshen")
 
+# Unter Steam/HoYoPlay teilen sich Launcher- und Helferfenster die WM_CLASS
+# (steam_app_genshin) — nur der Fenstertitel identifiziert das Spielfenster.
+GAME_TITLE = "genshin impact"
+
 
 def matches_genshin(wm_class: tuple[str, str] | None) -> bool:
     if not wm_class:
         return False
     return any(token in part.lower() for part in wm_class for token in WM_CLASS_TOKENS)
+
+
+def matches_title(wm_name: str | bytes | None) -> bool:
+    if isinstance(wm_name, bytes):
+        wm_name = wm_name.decode("utf-8", errors="ignore")
+    if not wm_name:
+        return False
+    return wm_name.strip().casefold() == GAME_TITLE
 
 
 def decode_zpixmap_rgb(data: bytes) -> tuple[int, int, int]:
@@ -41,7 +53,7 @@ class GenshinWindow:
     @staticmethod
     def _search(win):
         try:
-            if matches_genshin(win.get_wm_class()):
+            if matches_genshin(win.get_wm_class()) or matches_title(win.get_wm_name()):
                 return win
             for child in win.query_tree().children:
                 found = GenshinWindow._search(child)
