@@ -136,11 +136,12 @@ def cli() -> None:
     from genshin_autoskip.window import GenshinWindow
 
     state = AppState()
-    reporter = ui.PlainReporter(dry_run=args.dry_run)
+    reporter = ui.make_reporter(dry_run=args.dry_run)
 
     def on_action(action: str) -> None:
         state.status = {"run": "run", "pause": "pause", "exit": "exit"}[action]
         reporter.status_changed(state.status)
+        ui.notify(f"Auto-skip: {state.status.upper()}")
 
     keyboard = None
     if not args.dry_run:
@@ -150,7 +151,7 @@ def cli() -> None:
 
     HotkeyListener(on_action).start()
 
-    with reporter:
+    with ui.terminal_echo_off(), reporter:
         try:
             main_loop(
                 GenshinWindow.find, keyboard, state, Random(),
