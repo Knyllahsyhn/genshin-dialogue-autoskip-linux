@@ -69,3 +69,5 @@ uv sync
 ```bash
 uv run pytest          # unit tests (run without the game/X/uinput)
 ```
+## License
+This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
