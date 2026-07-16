@@ -10,7 +10,7 @@ from genshin_autoskip import detector
 WM_CLASS_TOKENS = ("genshinimpact", "genshin impact", "yuanshen")
 
 # Under Steam/HoYoPlay, launcher and helper windows share the WM_CLASS
-# (steam_app_genshin) — only the window title identifies the game window.
+# (steam_app_genshin) - only the window title identifies the game window.
 GAME_TITLE = "genshin impact"
 
 
