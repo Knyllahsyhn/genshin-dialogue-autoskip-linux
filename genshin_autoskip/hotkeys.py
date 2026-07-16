@@ -50,6 +50,9 @@ class HotkeyListener(Thread):
         self._devices = find_keyboards()
 
     def run(self) -> None:
+        if not self._devices:
+            print("Warnung: Keine Tastatur-Geräte lesbar — Hotkeys inaktiv.")
+            return
         devices = {dev.fd: dev for dev in self._devices}
         while devices:
             readable, _, _ = select(devices, [], [])
@@ -60,4 +63,9 @@ class HotkeyListener(Thread):
                         if action is not None:
                             self._callback(action)
                 except OSError:
-                    devices.pop(fd, None)
+                    dev = devices.pop(fd, None)
+                    if dev is not None:
+                        try:
+                            dev.close()
+                        except OSError:
+                            pass
