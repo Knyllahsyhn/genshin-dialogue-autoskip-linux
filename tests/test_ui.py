@@ -52,7 +52,7 @@ def _raise_file_not_found(*args, **kwargs):
 
 
 def test_notify_swallows_missing_binary(monkeypatch):
-    monkeypatch.setattr(ui.subprocess, "run", _raise_file_not_found)
+    monkeypatch.setattr(ui.subprocess, "Popen", _raise_file_not_found)
     ui.notify("test")  # must not raise
 
 
@@ -60,3 +60,13 @@ def test_terminal_echo_off_is_noop_without_tty(monkeypatch):
     monkeypatch.setattr(ui.sys.stdin, "isatty", lambda: False)
     with ui.terminal_echo_off():
         pass  # must not raise
+
+
+def test_reporters_implement_full_contract():
+    methods = [
+        "status_changed", "pressed", "dry_run_action", "break_started",
+        "window_missing", "window_found", "window_lost", "__enter__", "__exit__",
+    ]
+    for cls in (ui.PlainReporter, ui.RichReporter):
+        for name in methods:
+            assert callable(getattr(cls, name)), f"{cls.__name__}.{name} missing"

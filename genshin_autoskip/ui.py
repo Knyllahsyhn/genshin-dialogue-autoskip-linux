@@ -45,16 +45,17 @@ def terminal_echo_off():
         termios.tcsetattr(fd, termios.TCSADRAIN, new)
         yield
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        try:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        except termios.error:
+            pass
 
 
 def notify(text: str) -> None:
     """Best-effort desktop notification; silently ignores any failure."""
     try:
-        subprocess.run(
+        subprocess.Popen(
             ["notify-send", "--app-name=genshin-autoskip", "Genshin Auto-Skip", text],
-            timeout=2,
-            check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -162,7 +163,7 @@ class RichReporter:
     def dry_run_action(self, action: str) -> None:
         self.state.presses += 1
         self.state.last_action = ACTION_LABELS.get(action, action)
-        self._log(f"[dim]\\[dry-run][/dim] would now: {ACTION_LABELS.get(action, action)}")
+        self._log(f"[dim]\\[dry-run][/dim] Would now: {ACTION_LABELS.get(action, action)}")
 
     def break_started(self, duration: float) -> None:
         self.state.breaks += 1
