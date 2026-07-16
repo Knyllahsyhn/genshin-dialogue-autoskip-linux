@@ -8,6 +8,21 @@ Reads checkpoint pixels directly from the Genshin window (X11) and presses
 the interaction key (F) through a virtual uinput keyboard. When answer
 options appear, the first option is confirmed automatically.
 
+## Requirements
+
+### System Requirements
+
+    OS: Linux (tested on CachyOS w/ 7.1.3-2 kernel)
+    Display: Genshin running through XWayland, native Wayland not tested 
+    Privileges: user in `input` group
+
+### Software Requirements
+
+    Python 3.11+
+    uv package manager
+    Genshin Impact installed via Steam/Lutris (wine) and running
+
+
 ## One-time setup (permissions)
 
 ```bash
@@ -63,7 +78,9 @@ uv sync
   intentional, not a bug.
 - The tool only presses keys while the dialogue autoplay icon is visible;
   loading screens are guarded by a checkpoint pixel.
-
+## TODO
+- Move configration for colors and notifications to env file.
+- Test/include native Wayland support for Genshin running with PROTON_WAYLAND enabled. 
 ## Development
 
 ```bash
