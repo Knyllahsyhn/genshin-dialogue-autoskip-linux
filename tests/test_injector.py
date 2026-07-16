@@ -24,7 +24,7 @@ def _keyboard_with_fake():
     return kb
 
 
-def test_press_sendet_down_syn_up_syn():
+def test_press_sends_down_syn_up_syn():
     kb = _keyboard_with_fake()
     kb.press(hold=0)
     assert kb._ui.events == [
@@ -35,7 +35,7 @@ def test_press_sendet_down_syn_up_syn():
     ]
 
 
-def test_close_schliesst_uinput():
+def test_close_closes_uinput():
     kb = _keyboard_with_fake()
     kb.close()
     assert "CLOSE" in kb._ui.events

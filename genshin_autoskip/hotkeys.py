@@ -1,4 +1,4 @@
-"""Globale Hotkeys über evdev — funktioniert unabhängig vom Fenster-Fokus."""
+"""Global hotkeys via evdev — works regardless of window focus."""
 from __future__ import annotations
 
 from select import select
@@ -15,17 +15,17 @@ HOTKEY_ACTIONS = {
 
 
 def action_for(etype: int, code: int, value: int) -> str | None:
-    """Mappt ein rohes Input-Event auf eine Aktion (nur Key-Down, value == 1)."""
+    """Map a raw input event to an action (key-down only, value == 1)."""
     if etype != e.EV_KEY or value != 1:
         return None
     return HOTKEY_ACTIONS.get(code)
 
 
 def find_keyboards() -> list[InputDevice]:
-    """Echte Tastaturen: haben F8 UND Buchstabentasten.
+    """Real keyboards: have F8 AND letter keys.
 
-    Der Buchstaben-Check schließt unsere eigene virtuelle Tastatur aus
-    (die kann nur F) — sonst hören wir unsere eigenen Events.
+    The letter-key check excludes our own virtual keyboard (which only
+    has F) — otherwise we would listen to our own events.
     """
     keyboards = []
     for path in list_devices():
@@ -42,7 +42,7 @@ def find_keyboards() -> list[InputDevice]:
 
 
 class HotkeyListener(Thread):
-    """Liest Key-Events aller Tastaturen und ruft callback("run"/"pause"/"exit")."""
+    """Reads key events from all keyboards and calls callback("run"/"pause"/"exit")."""
 
     def __init__(self, callback: Callable[[str], None]) -> None:
         super().__init__(daemon=True)
@@ -51,7 +51,7 @@ class HotkeyListener(Thread):
 
     def run(self) -> None:
         if not self._devices:
-            print("Warnung: Keine Tastatur-Geräte lesbar — Hotkeys inaktiv.")
+            print("Warning: no readable keyboard devices — hotkeys inactive.")
             return
         devices = {dev.fd: dev for dev in self._devices}
         while devices:
@@ -72,4 +72,4 @@ class HotkeyListener(Thread):
                         except OSError:
                             pass
                     if not devices:
-                        print("Warnung: Letzte Tastatur verloren — Hotkeys inaktiv.")
+                        print("Warning: last keyboard lost — hotkeys inactive.")

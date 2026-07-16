@@ -1,4 +1,4 @@
-"""Zustandsmaschine, Hauptloop und CLI des Autoskippers."""
+"""State machine, main loop, and CLI of the auto-skipper."""
 from __future__ import annotations
 
 import argparse
@@ -14,7 +14,7 @@ BREAK_CHECK_INTERVAL = 30.0
 
 
 class AppState:
-    """Von Hotkey-Thread und Hauptloop geteilter Zustand."""
+    """State shared between the hotkey thread and the main loop."""
 
     def __init__(self) -> None:
         self.status: str = "pause"
@@ -45,13 +45,13 @@ def main_loop(
         if window is None:
             window = get_window()
             if window is None:
-                print("Genshin-Fenster nicht gefunden — warte...")
+                print("Genshin window not found — waiting...")
                 sleep(2.0)
                 continue
 
         px = window.read_checkpoints()
         if px is None:
-            print("Fenster verloren — suche neu...")
+            print("Window lost — searching again...")
             window.close()
             window = None
             sleep(2.0)
@@ -67,7 +67,7 @@ def main_loop(
             last_break_check = current
             if timing.should_take_break(rng):
                 duration = timing.random_break_duration(rng)
-                print(f"Menschenpause: {duration:.1f}s...")
+                print(f"Human-like break: {duration:.1f}s...")
                 sleep(duration)
                 last_press = now()
                 next_interval = timing.random_press_interval(rng)
@@ -75,8 +75,8 @@ def main_loop(
 
         if current - last_press >= next_interval:
             if dry_run:
-                label = "Option 1 bestätigen" if action == "confirm" else "Dialog skippen"
-                print(f"[dry-run] Würde jetzt: {label}")
+                label = "confirm option 1" if action == "confirm" else "skip dialogue"
+                print(f"[dry-run] Would now: {label}")
             else:
                 keyboard.press()
             last_press = current
@@ -89,7 +89,7 @@ def main_loop(
 
 
 def _preflight(dry_run: bool) -> list[str]:
-    """Vorbedingungen prüfen; Liste verständlicher Fehlermeldungen zurückgeben."""
+    """Check preconditions; return a list of human-readable error messages."""
     from genshin_autoskip import hotkeys
 
     errors = []
@@ -99,32 +99,32 @@ def _preflight(dry_run: bool) -> list[str]:
         display.Display().close()
     except Exception:
         errors.append(
-            "Kein X-Display erreichbar. Läuft die Sitzung mit XWayland (DISPLAY gesetzt)?"
+            "No X display reachable. Is the session running with XWayland (DISPLAY set)?"
         )
     if not hotkeys.find_keyboards():
         errors.append(
-            "Keine Tastatur unter /dev/input lesbar. Bist du in der 'input'-Gruppe? "
-            "(sudo usermod -aG input $USER, dann neu einloggen)"
+            "No keyboard readable under /dev/input. Are you in the 'input' group? "
+            "(sudo usermod -aG input $USER, then log in again)"
         )
     if not dry_run and not os.access("/dev/uinput", os.W_OK):
         errors.append(
-            "/dev/uinput nicht beschreibbar. udev-Regel fehlt? Siehe README, Abschnitt Setup."
+            "/dev/uinput not writable. Missing udev rule? See README, Setup section."
         )
     return errors
 
 
 def cli() -> None:
-    parser = argparse.ArgumentParser(description="Genshin Dialog-Autoskipper für Linux")
+    parser = argparse.ArgumentParser(description="Genshin dialogue auto-skipper for Linux")
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Erkennung live loggen, aber keine Tasten senden",
+        help="log detection live, but do not send any keys",
     )
     args = parser.parse_args()
 
     errors = _preflight(args.dry_run)
     if errors:
-        print("Setup unvollständig:\n")
+        print("Setup incomplete:\n")
         for error in errors:
             print(f"  - {error}")
         sys.exit(1)
@@ -146,11 +146,11 @@ def cli() -> None:
 
     HotkeyListener(on_action).start()
 
-    print("Genshin Dialog-Autoskipper")
-    print("  [F8]  Start    [F9]  Pause    [F12] Beenden")
+    print("Genshin Dialogue Auto-Skipper")
+    print("  [F8]  Start    [F9]  Pause    [F12] Quit")
     if args.dry_run:
-        print("  Modus: DRY-RUN (es werden keine Tasten gesendet)")
-    print("\nWarte auf F8...")
+        print("  Mode: DRY-RUN (no keys will be sent)")
+    print("\nWaiting for F8...")
 
     try:
         main_loop(GenshinWindow.find, keyboard, state, Random(), dry_run=args.dry_run)
@@ -159,7 +159,7 @@ def cli() -> None:
     finally:
         if keyboard is not None:
             keyboard.close()
-    print("Beendet.")
+    print("Done.")
 
 
 if __name__ == "__main__":

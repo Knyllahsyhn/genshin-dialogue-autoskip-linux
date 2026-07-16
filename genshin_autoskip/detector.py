@@ -1,4 +1,4 @@
-"""Pixel-basierte Dialog-Erkennung, Prüfpunkte portiert aus dem Original."""
+"""Pixel-based dialogue detection; checkpoints ported from the original."""
 
 Pixel = tuple[int, int, int]
 
@@ -18,7 +18,7 @@ COLOR_TOLERANCE = 10
 
 
 def scale_point(point: tuple[int, int], width: int, height: int) -> tuple[int, int]:
-    """1080p-Referenzkoordinate auf die tatsächliche Fenstergröße umrechnen."""
+    """Convert a 1080p reference coordinate to the actual window size."""
     x, y = point
     return (int(x / REF_WIDTH * width), int(y / REF_HEIGHT * height))
 
@@ -28,7 +28,7 @@ def scaled_checkpoints(width: int, height: int) -> dict[str, tuple[int, int]]:
 
 
 def color_matches(actual: Pixel, expected: Pixel, tolerance: int = COLOR_TOLERANCE) -> bool:
-    """Wine/Farbprofile verschieben Farben leicht — deshalb Toleranz statt Gleichheit."""
+    """Wine/color profiles shift colors slightly — hence tolerance over equality."""
     return all(abs(a - e) <= tolerance for a, e in zip(actual, expected))
 
 
@@ -47,10 +47,10 @@ def is_dialogue_option_visible(px: dict[str, Pixel]) -> bool:
 
 
 def decide(px: dict[str, Pixel] | None) -> str | None:
-    """Was ist in diesem Tick zu tun?
+    """What should happen this tick?
 
-    None = nichts, "skip" = Dialog läuft weiterklicken,
-    "confirm" = erste Antwortoption bestätigen.
+    None = do nothing, "skip" = dialogue is playing, keep advancing,
+    "confirm" = confirm the first answer option.
     """
     if px is None:
         return None

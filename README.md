@@ -1,31 +1,32 @@
 # Genshin Dialogue Autoskip (Linux)
 
-Dialog-Autoskipper für Genshin Impact unter Wine/Lutris (XWayland).
-Linux-Port von [1hubert/genshin-dialogue-autoskip](https://github.com/1hubert/genshin-dialogue-autoskip).
+Dialogue auto-skipper for Genshin Impact running under Wine (XWayland) —
+works with Steam/HoYoPlay and Lutris setups.
+Linux port of [1hubert/genshin-dialogue-autoskip](https://github.com/1hubert/genshin-dialogue-autoskip).
 
-Liest Prüfpixel direkt aus dem Genshin-Fenster (X11) und drückt die
-Interaktionstaste (F) über eine virtuelle uinput-Tastatur. Bei
-Antwortoptionen wird automatisch die erste Option bestätigt.
+Reads checkpoint pixels directly from the Genshin window (X11) and presses
+the interaction key (F) through a virtual uinput keyboard. When answer
+options appear, the first option is confirmed automatically.
 
-## Einmaliges Setup (Berechtigungen)
+## One-time setup (permissions)
 
 ```bash
-# 1. User in die input-Gruppe (Hotkeys lesen)
+# 1. Add your user to the input group (read hotkeys)
 sudo usermod -aG input $USER
 
-# 2. udev-Regel für /dev/uinput (virtuelle Tastatur erstellen)
+# 2. udev rule for /dev/uinput (create the virtual keyboard)
 sudo tee /etc/udev/rules.d/99-uinput.rules <<'EOF'
 KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"
 EOF
 
-# 3. uinput-Modul laden (jetzt und bei jedem Boot)
+# 3. Load the uinput module (now and on every boot)
 sudo modprobe uinput
 echo uinput | sudo tee /etc/modules-load.d/uinput.conf
 
-# 4. Regeln neu laden
+# 4. Reload the rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
 
-# 5. Neu einloggen, damit die Gruppenmitgliedschaft greift!
+# 5. Log in again so the group membership takes effect!
 ```
 
 ## Installation
@@ -34,37 +35,37 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 uv sync
 ```
 
-## Nutzung
+## Usage
 
-1. Genshin starten (Fenster- oder Borderless-Modus, 16:9).
-2. **Erstinbetriebnahme — Kalibrierung** (einmalig, und nach
-   Genshin-Updates mit UI-Änderungen):
-   - Spiel in eine Dialogszene bringen (NPC ansprechen).
+1. Start Genshin (windowed or borderless mode, 16:9).
+2. **First run — calibration** (once, and again after Genshin updates that
+   change the UI):
+   - Bring the game into a dialogue scene (talk to an NPC).
    - `uv run python -m genshin_autoskip.calibrate`
-   - Ausgabe prüfen: `playing_icon` muss `[OK]` sein, solange der Dialog
-     läuft. `calibration.png` zeigt die Prüfpunkte als rote Kreise.
-   - Danach mit sichtbaren Antwortoptionen wiederholen: `dialogue_icon_*`
-     muss `[OK]` zeigen.
-   - Weichen Farben ab: Werte in `genshin_autoskip/detector.py`
-     (`PLAYING_ICON_COLOR`, `CHECKPOINTS`) anpassen.
-3. **Probelauf ohne Tastendrücke:**
-   `uv run genshin-autoskip --dry-run` → F8 drücken, Dialog starten,
-   Terminal muss „Würde jetzt: …" loggen.
-4. **Scharf:** `uv run genshin-autoskip`
-   - `F8` Start, `F9` Pause, `F12` Beenden.
+   - Check the output: `playing_icon` must show `[OK]` while the dialogue
+     is running. `calibration.png` marks the checkpoints with red circles.
+   - Repeat with answer options visible: one of the `dialogue_icon_*`
+     checkpoints must show `[OK]`.
+   - If the colors are off, adjust the values in
+     `genshin_autoskip/detector.py` (`PLAYING_ICON_COLOR`, `CHECKPOINTS`).
+3. **Test run without key presses:**
+   `uv run genshin-autoskip --dry-run` → press F8, start a dialogue,
+   the terminal must log "Would now: …".
+4. **Live:** `uv run genshin-autoskip`
+   - `F8` start, `F9` pause, `F12` quit.
 
-## Hinweise
+## Notes
 
-- Pixel-Bots verstoßen formal gegen die HoYoverse-ToS — Nutzung auf
-  eigenes Risiko. Das Tool liest nur Bildschirm-Pixel und sendet
-  Tastendrücke; es greift weder auf Spielspeicher noch -dateien zu.
-- Alle ~30 s besteht eine 4-%-Chance auf eine „Menschenpause" (3–8 s) —
-  gewollt, kein Bug.
-- Das Tool drückt nur, wenn das Dialog-Autoplay-Icon sichtbar ist;
-  Ladebildschirme sind per Prüfpixel abgesichert.
+- Pixel bots formally violate the HoYoverse ToS — use at your own risk.
+  The tool only reads screen pixels and sends key presses; it never touches
+  game memory or game files.
+- Roughly every 30 s there is a 4% chance of a "human-like break" (3–8 s) —
+  intentional, not a bug.
+- The tool only presses keys while the dialogue autoplay icon is visible;
+  loading screens are guarded by a checkpoint pixel.
 
-## Entwicklung
+## Development
 
 ```bash
-uv run pytest          # Unit-Tests (laufen ohne Spiel/X/uinput)
+uv run pytest          # unit tests (run without the game/X/uinput)
 ```

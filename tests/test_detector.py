@@ -1,16 +1,16 @@
 from genshin_autoskip import detector
 
 
-def test_scale_point_identisch_bei_referenzaufloesung():
+def test_scale_point_identity_at_reference_resolution():
     assert detector.scale_point((84, 46), 1920, 1080) == (84, 46)
 
 
-def test_scale_point_auf_1440p():
+def test_scale_point_to_1440p():
     # 84/1920*2560 = 112.0 ; 46/1080*1440 = 61.33 -> 61
     assert detector.scale_point((84, 46), 2560, 1440) == (112, 61)
 
 
-def test_scaled_checkpoints_enthaelt_alle_pruefpunkte():
+def test_scaled_checkpoints_contains_all_checkpoints():
     points = detector.scaled_checkpoints(1920, 1080)
     assert points == {
         "playing_icon": (84, 46),
@@ -20,10 +20,10 @@ def test_scaled_checkpoints_enthaelt_alle_pruefpunkte():
     }
 
 
-def test_color_matches_exakt_und_mit_toleranz():
+def test_color_matches_exact_and_with_tolerance():
     assert detector.color_matches((236, 229, 216), (236, 229, 216))
     assert detector.color_matches((246, 219, 216), (236, 229, 216))  # ±10 ok
-    assert not detector.color_matches((247, 229, 216), (236, 229, 216))  # 11 daneben
+    assert not detector.color_matches((247, 229, 216), (236, 229, 216))  # 11 off
 
 
 def _px(playing=(0, 0, 0), lower=(0, 0, 0), higher=(0, 0, 0), loading=(0, 0, 0)):
@@ -35,28 +35,28 @@ def _px(playing=(0, 0, 0), lower=(0, 0, 0), higher=(0, 0, 0), loading=(0, 0, 0))
     }
 
 
-def test_decide_ohne_pixel_none():
+def test_decide_without_pixels_is_none():
     assert detector.decide(None) is None
 
 
-def test_decide_nichts_erkannt_none():
+def test_decide_nothing_detected_is_none():
     assert detector.decide(_px()) is None
 
 
-def test_decide_dialog_laeuft_skip():
+def test_decide_running_dialogue_is_skip():
     assert detector.decide(_px(playing=(236, 229, 216))) == "skip"
 
 
-def test_decide_optionen_sichtbar_confirm():
+def test_decide_visible_options_is_confirm():
     assert detector.decide(_px(lower=(255, 255, 255))) == "confirm"
     assert detector.decide(_px(higher=(255, 255, 255))) == "confirm"
 
 
-def test_decide_optionen_schlagen_skip():
+def test_decide_options_beat_skip():
     px = _px(playing=(236, 229, 216), lower=(255, 255, 255))
     assert detector.decide(px) == "confirm"
 
 
-def test_decide_loading_screen_blockiert_alles():
+def test_decide_loading_screen_blocks_everything():
     px = _px(playing=(236, 229, 216), lower=(255, 255, 255), loading=(255, 255, 255))
     assert detector.decide(px) is None

@@ -1,4 +1,4 @@
-"""X11-Zugriff auf das Genshin-XWayland-Fenster (Suche, Geometrie, Pixel)."""
+"""X11 access to the Genshin XWayland window (search, geometry, pixels)."""
 from __future__ import annotations
 
 from Xlib import X, display
@@ -6,11 +6,11 @@ from Xlib.error import XError
 
 from genshin_autoskip import detector
 
-# Wine setzt WM_CLASS auf den exe-Namen; Varianten decken Lutris-Setups ab.
+# Wine sets WM_CLASS to the exe name; the variants cover Lutris setups.
 WM_CLASS_TOKENS = ("genshinimpact", "genshin impact", "yuanshen")
 
-# Unter Steam/HoYoPlay teilen sich Launcher- und Helferfenster die WM_CLASS
-# (steam_app_genshin) — nur der Fenstertitel identifiziert das Spielfenster.
+# Under Steam/HoYoPlay, launcher and helper windows share the WM_CLASS
+# (steam_app_genshin) — only the window title identifies the game window.
 GAME_TITLE = "genshin impact"
 
 
@@ -29,7 +29,7 @@ def matches_title(wm_name: str | bytes | None) -> bool:
 
 
 def decode_zpixmap_rgb(data: bytes) -> tuple[int, int, int]:
-    """Erstes Pixel eines 32-bit-ZPixmap (little-endian BGRX) als RGB."""
+    """First pixel of a 32-bit ZPixmap (little-endian BGRX) as RGB."""
     return (data[2], data[1], data[0])
 
 
@@ -90,7 +90,7 @@ class GenshinWindow:
         return result
 
     def screenshot(self):
-        """Ganzes Fenster als PIL-Image (nur für calibrate.py)."""
+        """The whole window as a PIL image (only used by calibrate.py)."""
         from PIL import Image
 
         size = self.size()

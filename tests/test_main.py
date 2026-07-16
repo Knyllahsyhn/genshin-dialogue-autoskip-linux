@@ -13,7 +13,7 @@ LOADING_PX = {**DIALOG_PX, "loading_screen": (255, 255, 255)}
 
 
 class FakeClock:
-    """Fake-Zeit: sleep() lässt die Uhr springen statt zu warten."""
+    """Fake time: sleep() jumps the clock forward instead of waiting."""
 
     def __init__(self):
         self.t = 0.0
@@ -39,7 +39,7 @@ class FakeWindow:
 
 
 class FakeKeyboard:
-    """Beendet den Loop nach stop_after Tastendrücken."""
+    """Ends the loop after stop_after key presses."""
 
     def __init__(self, state, stop_after):
         self.state = state
@@ -63,11 +63,11 @@ def _stop_after_sleeps(state, clock, limit):
     return sleep
 
 
-def test_startzustand_ist_pause():
+def test_initial_state_is_pause():
     assert AppState().status == "pause"
 
 
-def test_dialog_laeuft_loest_tastendruecke_aus():
+def test_running_dialogue_triggers_key_presses():
     state = AppState()
     state.status = "run"
     clock = FakeClock()
@@ -79,7 +79,7 @@ def test_dialog_laeuft_loest_tastendruecke_aus():
     assert keyboard.presses == 3
 
 
-def test_loading_screen_drueckt_nie():
+def test_loading_screen_never_presses():
     state = AppState()
     state.status = "run"
     clock = FakeClock()
@@ -91,8 +91,8 @@ def test_loading_screen_drueckt_nie():
     assert keyboard.presses == 0
 
 
-def test_pause_drueckt_nie():
-    state = AppState()  # bleibt "pause"
+def test_pause_never_presses():
+    state = AppState()  # stays "pause"
     clock = FakeClock()
     keyboard = FakeKeyboard(state, stop_after=1)
     main_loop(
@@ -102,7 +102,7 @@ def test_pause_drueckt_nie():
     assert keyboard.presses == 0
 
 
-def test_fehlendes_fenster_drueckt_nie():
+def test_missing_window_never_presses():
     state = AppState()
     state.status = "run"
     clock = FakeClock()
@@ -114,7 +114,7 @@ def test_fehlendes_fenster_drueckt_nie():
     assert keyboard.presses == 0
 
 
-def test_dry_run_drueckt_nie():
+def test_dry_run_never_presses():
     state = AppState()
     state.status = "run"
     clock = FakeClock()
@@ -126,7 +126,7 @@ def test_dry_run_drueckt_nie():
     assert keyboard.presses == 0
 
 
-def test_fenster_ohne_pixel_drueckt_nie():
+def test_unreadable_window_never_presses():
     state = AppState()
     state.status = "run"
     clock = FakeClock()

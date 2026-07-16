@@ -1,7 +1,7 @@
 [project]
 name = "genshin-autoskip"
 version = "0.1.0"
-description = "Dialog-Autoskipper für Genshin Impact unter Linux (Wine/XWayland)"
+description = "Dialogue auto-skipper for Genshin Impact on Linux (Wine/XWayland)"
 requires-python = ">=3.11"
 dependencies = [
     "python-xlib>=0.33",

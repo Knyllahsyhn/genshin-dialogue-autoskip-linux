@@ -1,4 +1,4 @@
-"""Virtuelle uinput-Tastatur — Kernel-Level-Input, für Wine wie echte Hardware."""
+"""Virtual uinput keyboard — kernel-level input, indistinguishable from real hardware to Wine."""
 import time
 
 from evdev import UInput, ecodes as e
