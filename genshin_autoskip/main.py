@@ -51,7 +51,9 @@ def main_loop(
         px = window.read_checkpoints()
         if px is None:
             print("Fenster verloren — suche neu...")
+            window.close()
             window = None
+            sleep(2.0)
             continue
 
         action = detector.decide(px)

@@ -34,6 +34,9 @@ class FakeWindow:
     def read_checkpoints(self):
         return self.px
 
+    def close(self):
+        pass
+
 
 class FakeKeyboard:
     """Beendet den Loop nach stop_after Tastendrücken."""
@@ -119,5 +122,17 @@ def test_dry_run_drueckt_nie():
     main_loop(
         lambda: FakeWindow(DIALOG_PX), keyboard, state, Random(42),
         dry_run=True, sleep=_stop_after_sleeps(state, clock, 100), now=clock.now,
+    )
+    assert keyboard.presses == 0
+
+
+def test_fenster_ohne_pixel_drueckt_nie():
+    state = AppState()
+    state.status = "run"
+    clock = FakeClock()
+    keyboard = FakeKeyboard(state, stop_after=1)
+    main_loop(
+        lambda: FakeWindow(None), keyboard, state, Random(42),
+        sleep=_stop_after_sleeps(state, clock, 20), now=clock.now,
     )
     assert keyboard.presses == 0

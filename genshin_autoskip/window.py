@@ -28,10 +28,15 @@ class GenshinWindow:
 
     @classmethod
     def find(cls, disp: display.Display | None = None) -> "GenshinWindow | None":
+        owns_display = disp is None
         disp = disp or display.Display()
         root = disp.screen().root
         win = cls._search(root)
-        return cls(disp, win) if win is not None else None
+        if win is None:
+            if owns_display:
+                disp.close()
+            return None
+        return cls(disp, win)
 
     @staticmethod
     def _search(win):
@@ -85,3 +90,9 @@ class GenshinWindow:
         except XError:
             return None
         return Image.frombytes("RGB", (w, h), img.data, "raw", "BGRX")
+
+    def close(self) -> None:
+        try:
+            self._display.close()
+        except Exception:
+            pass
