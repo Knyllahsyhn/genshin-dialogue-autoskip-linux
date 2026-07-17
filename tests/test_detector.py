@@ -60,3 +60,26 @@ def test_decide_options_beat_skip():
 def test_decide_loading_screen_blocks_everything():
     px = _px(playing=(236, 229, 216), lower=(255, 255, 255), loading=(255, 255, 255))
     assert detector.decide(px) is None
+
+
+from genshin_autoskip.config import Config
+
+
+def test_decide_confirm_disabled_via_config():
+    cfg = Config(auto_confirm=False)
+    assert detector.decide(_px(lower=(255, 255, 255)), cfg) is None
+    assert detector.decide(_px(higher=(255, 255, 255)), cfg) is None
+    # skipping is unaffected
+    assert detector.decide(_px(playing=(236, 229, 216)), cfg) == "skip"
+
+
+def test_decide_custom_color_and_tolerance():
+    cfg = Config(playing_icon_color=(10, 10, 10), color_tolerance=0)
+    assert detector.decide(_px(playing=(10, 10, 10)), cfg) == "skip"
+    assert detector.decide(_px(playing=(11, 10, 10)), cfg) is None
+    assert detector.decide(_px(playing=(236, 229, 216)), cfg) is None
+
+
+def test_scaled_checkpoints_custom_map():
+    points = detector.scaled_checkpoints(1920, 1080, {"playing_icon": (100, 50)})
+    assert points == {"playing_icon": (100, 50)}

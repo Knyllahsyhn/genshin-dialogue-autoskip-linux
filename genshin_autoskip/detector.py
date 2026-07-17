@@ -1,20 +1,12 @@
 """Pixel-based dialogue detection; checkpoints ported from the original."""
+from genshin_autoskip.config import DEFAULT_CONFIG, Config
 
 Pixel = tuple[int, int, int]
 
 REF_WIDTH = 1920
 REF_HEIGHT = 1080
 
-CHECKPOINTS: dict[str, tuple[int, int]] = {
-    "playing_icon": (84, 46),
-    "dialogue_icon_lower": (1301, 808),
-    "dialogue_icon_higher": (1301, 790),
-    "loading_screen": (1200, 700),
-}
-
-PLAYING_ICON_COLOR: Pixel = (236, 229, 216)
 WHITE: Pixel = (255, 255, 255)
-COLOR_TOLERANCE = 10
 
 
 def scale_point(point: tuple[int, int], width: int, height: int) -> tuple[int, int]:
@@ -23,41 +15,47 @@ def scale_point(point: tuple[int, int], width: int, height: int) -> tuple[int, i
     return (int(x / REF_WIDTH * width), int(y / REF_HEIGHT * height))
 
 
-def scaled_checkpoints(width: int, height: int) -> dict[str, tuple[int, int]]:
-    return {name: scale_point(p, width, height) for name, p in CHECKPOINTS.items()}
+def scaled_checkpoints(
+    width: int, height: int, checkpoints: dict[str, tuple[int, int]] | None = None
+) -> dict[str, tuple[int, int]]:
+    if checkpoints is None:
+        checkpoints = DEFAULT_CONFIG.checkpoints
+    return {name: scale_point(p, width, height) for name, p in checkpoints.items()}
 
 
-def color_matches(actual: Pixel, expected: Pixel, tolerance: int = COLOR_TOLERANCE) -> bool:
-    """Wine/color profiles shift colors slightly — hence tolerance over equality."""
+def color_matches(actual: Pixel, expected: Pixel, tolerance: int = 10) -> bool:
+    """Wine/color profiles shift colors slightly, hence tolerance over equality."""
     return all(abs(a - e) <= tolerance for a, e in zip(actual, expected))
 
 
-def is_loading_screen(px: dict[str, Pixel]) -> bool:
-    return color_matches(px["loading_screen"], WHITE)
+def is_loading_screen(px: dict[str, Pixel], cfg: Config = DEFAULT_CONFIG) -> bool:
+    return color_matches(px["loading_screen"], WHITE, cfg.color_tolerance)
 
 
-def is_dialogue_playing(px: dict[str, Pixel]) -> bool:
-    return color_matches(px["playing_icon"], PLAYING_ICON_COLOR)
+def is_dialogue_playing(px: dict[str, Pixel], cfg: Config = DEFAULT_CONFIG) -> bool:
+    return color_matches(px["playing_icon"], cfg.playing_icon_color, cfg.color_tolerance)
 
 
-def is_dialogue_option_visible(px: dict[str, Pixel]) -> bool:
-    return color_matches(px["dialogue_icon_lower"], WHITE) or color_matches(
-        px["dialogue_icon_higher"], WHITE
+def is_dialogue_option_visible(px: dict[str, Pixel], cfg: Config = DEFAULT_CONFIG) -> bool:
+    return color_matches(px["dialogue_icon_lower"], WHITE, cfg.color_tolerance) or color_matches(
+        px["dialogue_icon_higher"], WHITE, cfg.color_tolerance
     )
 
 
-def decide(px: dict[str, Pixel] | None) -> str | None:
+def decide(px: dict[str, Pixel] | None, cfg: Config = DEFAULT_CONFIG) -> str | None:
     """What should happen this tick?
 
     None = do nothing, "skip" = dialogue is playing, keep advancing,
     "confirm" = confirm the first answer option.
+    With auto_confirm disabled, visible options yield None so the user
+    can pick an answer manually.
     """
     if px is None:
         return None
-    if is_loading_screen(px):
+    if is_loading_screen(px, cfg):
         return None
-    if is_dialogue_option_visible(px):
-        return "confirm"
-    if is_dialogue_playing(px):
+    if is_dialogue_option_visible(px, cfg):
+        return "confirm" if cfg.auto_confirm else None
+    if is_dialogue_playing(px, cfg):
         return "skip"
     return None
