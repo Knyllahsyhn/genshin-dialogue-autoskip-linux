@@ -26,12 +26,26 @@ def test_color_matches_exact_and_with_tolerance():
     assert not detector.color_matches((247, 229, 216), (236, 229, 216))  # 11 off
 
 
+def test_patch_matches_fraction_threshold():
+    white, black = (255, 255, 255), (0, 0, 0)
+    # 2 of 4 white = 50% >= 34%
+    assert detector.patch_matches([white, white, black, black], white, 10, 0.34)
+    # 1 of 4 white = 25% < 34%
+    assert not detector.patch_matches([white, black, black, black], white, 10, 0.34)
+    # all white
+    assert detector.patch_matches([white] * 9, white, 10, 0.34)
+    # empty patch never matches
+    assert not detector.patch_matches([], white, 10, 0.34)
+
+
 def _px(playing=(0, 0, 0), lower=(0, 0, 0), higher=(0, 0, 0), loading=(0, 0, 0)):
+    # each checkpoint is now a patch (list of pixels); a solid 1-pixel patch
+    # matches iff its single pixel matches, keeping these cases readable.
     return {
-        "playing_icon": playing,
-        "dialogue_icon_lower": lower,
-        "dialogue_icon_higher": higher,
-        "loading_screen": loading,
+        "playing_icon": [playing],
+        "dialogue_icon_lower": [lower],
+        "dialogue_icon_higher": [higher],
+        "loading_screen": [loading],
     }
 
 

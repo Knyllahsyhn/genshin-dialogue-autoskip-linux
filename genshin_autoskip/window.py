@@ -33,6 +33,11 @@ def decode_zpixmap_rgb(data: bytes) -> tuple[int, int, int]:
     return (data[2], data[1], data[0])
 
 
+def decode_zpixmap_patch(data: bytes, count: int) -> list[tuple[int, int, int]]:
+    """All ``count`` pixels of a 32-bit ZPixmap (little-endian BGRX) as RGB."""
+    return [(data[i + 2], data[i + 1], data[i]) for i in range(0, count * 4, 4)]
+
+
 class GenshinWindow:
     def __init__(self, disp: display.Display, win) -> None:
         self._display = disp
@@ -77,18 +82,41 @@ class GenshinWindow:
         except XError:
             return None
 
+    def read_patch(
+        self, cx: int, cy: int, radius: int, size: tuple[int, int] | None = None
+    ) -> list[detector.Pixel] | None:
+        """Sample a (2*radius+1) square around (cx, cy), clamped to the window."""
+        size = size or self.size()
+        if size is None:
+            return None
+        width, height = size
+        x0 = max(0, cx - radius)
+        y0 = max(0, cy - radius)
+        x1 = min(width, cx + radius + 1)
+        y1 = min(height, cy + radius + 1)
+        w, h = x1 - x0, y1 - y0
+        if w <= 0 or h <= 0:
+            return None
+        try:
+            img = self._window.get_image(x0, y0, w, h, X.ZPixmap, 0xFFFFFFFF)
+            return decode_zpixmap_patch(img.data, w * h)
+        except XError:
+            return None
+
     def read_checkpoints(
-        self, checkpoints: dict[str, tuple[int, int]] | None = None
-    ) -> dict[str, detector.Pixel] | None:
+        self,
+        checkpoints: dict[str, tuple[int, int]] | None = None,
+        radius: int = 3,
+    ) -> dict[str, list[detector.Pixel]] | None:
         size = self.size()
         if size is None:
             return None
-        result: dict[str, detector.Pixel] = {}
+        result: dict[str, list[detector.Pixel]] = {}
         for name, (x, y) in detector.scaled_checkpoints(*size, checkpoints).items():
-            pixel = self.read_pixel(x, y)
-            if pixel is None:
+            patch = self.read_patch(x, y, radius, size)
+            if patch is None:
                 return None
-            result[name] = pixel
+            result[name] = patch
         return result
 
     def screenshot(self):

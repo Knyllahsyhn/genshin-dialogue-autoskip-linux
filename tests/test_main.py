@@ -2,20 +2,21 @@ from random import Random
 
 from genshin_autoskip.main import AppState, main_loop
 
+# Each checkpoint is a patch (list of pixels); 1-pixel patches keep these terse.
 DIALOG_PX = {
-    "playing_icon": (236, 229, 216),
-    "dialogue_icon_lower": (0, 0, 0),
-    "dialogue_icon_higher": (0, 0, 0),
-    "loading_screen": (0, 0, 0),
+    "playing_icon": [(236, 229, 216)],
+    "dialogue_icon_lower": [(0, 0, 0)],
+    "dialogue_icon_higher": [(0, 0, 0)],
+    "loading_screen": [(0, 0, 0)],
 }
 
-LOADING_PX = {**DIALOG_PX, "loading_screen": (255, 255, 255)}
+LOADING_PX = {**DIALOG_PX, "loading_screen": [(255, 255, 255)]}
 
 OPTIONS_PX = {
-    "playing_icon": (0, 0, 0),
-    "dialogue_icon_lower": (255, 255, 255),
-    "dialogue_icon_higher": (0, 0, 0),
-    "loading_screen": (0, 0, 0),
+    "playing_icon": [(0, 0, 0)],
+    "dialogue_icon_lower": [(255, 255, 255)],
+    "dialogue_icon_higher": [(0, 0, 0)],
+    "loading_screen": [(0, 0, 0)],
 }
 
 
@@ -39,7 +40,7 @@ class FakeWindow:
         self.px = px
         self.seen_checkpoints = []
 
-    def read_checkpoints(self, checkpoints=None):
+    def read_checkpoints(self, checkpoints=None, radius=3):
         self.seen_checkpoints.append(checkpoints)
         return self.px
 

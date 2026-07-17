@@ -65,6 +65,8 @@ cp .env.example .env
 | `AUTO_CONFIRM` | `true` | Auto-confirm the first answer option; `false` waits for you |
 | `PLAYING_ICON_COLOR` | `236,229,216` | RGB of the dialogue autoplay icon |
 | `COLOR_TOLERANCE` | `10` | Allowed per-channel color deviation |
+| `PATCH_RADIUS` | `3` | Half-size of the pixel box sampled per checkpoint (3 → 7x7) |
+| `MATCH_FRACTION` | `0.34` | Fraction of the box that must match for a checkpoint to trigger |
 | `CHECKPOINT_*` | see `.env.example` | Checkpoint coordinates in 1080p reference space |
 
 Every key is optional. Environment variables with the same names override

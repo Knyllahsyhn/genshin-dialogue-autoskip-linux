@@ -52,7 +52,7 @@ def main_loop(
                 continue
             reporter.window_found(window.size())
 
-        px = window.read_checkpoints(cfg.checkpoints)
+        px = window.read_checkpoints(cfg.checkpoints, cfg.patch_radius)
         if px is None:
             reporter.window_lost()
             window.close()

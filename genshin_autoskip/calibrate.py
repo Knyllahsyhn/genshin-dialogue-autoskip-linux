@@ -39,17 +39,25 @@ def main() -> int:
     width, height = size
     print(f"Window found: {width}x{height}")
 
+    radius = cfg.patch_radius
     draw = ImageDraw.Draw(image)
-    print(f"\n{'Checkpoint':<22} {'Coordinate':<12} {'Actual':<16} Expected")
+    print(f"\n{'Checkpoint':<22} {'Coordinate':<12} {'Match':<8} Expected")
     for name, (x, y) in detector.scaled_checkpoints(width, height, cfg.checkpoints).items():
-        actual = win.read_pixel(x, y)
-        marker = (
-            "?"
-            if actual is None
-            else ("OK" if detector.color_matches(actual, expected[name], cfg.color_tolerance) else "!!")
+        patch = win.read_patch(x, y, radius, size)
+        if patch is None:
+            fraction = None
+            marker = "?"
+        else:
+            hits = sum(
+                detector.color_matches(p, expected[name], cfg.color_tolerance) for p in patch
+            )
+            fraction = hits / len(patch)
+            marker = "OK" if fraction >= cfg.match_fraction else "!!"
+        shown = "n/a" if fraction is None else f"{fraction:.0%}"
+        print(f"{name:<22} ({x},{y})    {shown:<8} {expected[name]}  [{marker}]")
+        draw.rectangle(
+            (x - radius, y - radius, x + radius, y + radius), outline=(255, 0, 0), width=2
         )
-        print(f"{name:<22} ({x},{y})    {str(actual):<16} {expected[name]}  [{marker}]")
-        draw.ellipse((x - 8, y - 8, x + 8, y + 8), outline=(255, 0, 0), width=3)
 
     image.save("calibration.png")
     print("\nScreenshot with markers: calibration.png")

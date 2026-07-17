@@ -26,6 +26,8 @@ KNOWN_KEYS = {
     "AUTO_CONFIRM",
     "PLAYING_ICON_COLOR",
     "COLOR_TOLERANCE",
+    "PATCH_RADIUS",
+    "MATCH_FRACTION",
     *CHECKPOINT_KEYS,
 }
 
@@ -43,6 +45,8 @@ class Config:
     auto_confirm: bool = True
     playing_icon_color: tuple[int, int, int] = (236, 229, 216)
     color_tolerance: int = 10
+    patch_radius: int = 3
+    match_fraction: float = 0.34
     checkpoints: dict[str, tuple[int, int]] = field(
         default_factory=lambda: dict(DEFAULT_CHECKPOINTS)
     )
@@ -91,6 +95,16 @@ def _parse_ints(key: str, raw: str, count: int) -> tuple[int, ...]:
     return numbers
 
 
+def _parse_fraction(key: str, raw: str) -> float:
+    try:
+        value = float(raw)
+    except ValueError:
+        raise ConfigError(f"{key}: expected a number in (0, 1], got {raw!r}") from None
+    if not 0.0 < value <= 1.0:
+        raise ConfigError(f"{key}: expected a number in (0, 1], got {raw!r}")
+    return value
+
+
 def _parse_color(key: str, raw: str) -> tuple[int, int, int]:
     r, g, b = _parse_ints(key, raw, 3)
     if any(v > 255 for v in (r, g, b)):
@@ -129,11 +143,19 @@ def load(path: str | Path = ".env", environ: dict[str, str] | None = None) -> Co
     tolerance = DEFAULT_CONFIG.color_tolerance
     if "COLOR_TOLERANCE" in values:
         (tolerance,) = _parse_ints("COLOR_TOLERANCE", values["COLOR_TOLERANCE"], 1)
+    patch_radius = DEFAULT_CONFIG.patch_radius
+    if "PATCH_RADIUS" in values:
+        (patch_radius,) = _parse_ints("PATCH_RADIUS", values["PATCH_RADIUS"], 1)
+    match_fraction = DEFAULT_CONFIG.match_fraction
+    if "MATCH_FRACTION" in values:
+        match_fraction = _parse_fraction("MATCH_FRACTION", values["MATCH_FRACTION"])
 
     return Config(
         notifications=notifications,
         auto_confirm=auto_confirm,
         playing_icon_color=color,
         color_tolerance=tolerance,
+        patch_radius=patch_radius,
+        match_fraction=match_fraction,
         checkpoints=checkpoints,
     )

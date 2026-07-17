@@ -28,21 +28,42 @@ def color_matches(actual: Pixel, expected: Pixel, tolerance: int = 10) -> bool:
     return all(abs(a - e) <= tolerance for a, e in zip(actual, expected))
 
 
-def is_loading_screen(px: dict[str, Pixel], cfg: Config = DEFAULT_CONFIG) -> bool:
-    return color_matches(px["loading_screen"], WHITE, cfg.color_tolerance)
+def patch_matches(
+    patch: list[Pixel], expected: Pixel, tolerance: int, min_fraction: float
+) -> bool:
+    """True when at least ``min_fraction`` of the sampled patch matches ``expected``.
+
+    A single pixel is brittle: the speech-bubble icon holds grey dots inside white,
+    and scaling nudges the sample off-center. Sampling a small box and requiring a
+    fraction (not every pixel) absorbs both.
+    """
+    if not patch:
+        return False
+    hits = sum(color_matches(p, expected, tolerance) for p in patch)
+    return hits / len(patch) >= min_fraction
 
 
-def is_dialogue_playing(px: dict[str, Pixel], cfg: Config = DEFAULT_CONFIG) -> bool:
-    return color_matches(px["playing_icon"], cfg.playing_icon_color, cfg.color_tolerance)
+def is_loading_screen(px: dict[str, list[Pixel]], cfg: Config = DEFAULT_CONFIG) -> bool:
+    return patch_matches(px["loading_screen"], WHITE, cfg.color_tolerance, cfg.match_fraction)
 
 
-def is_dialogue_option_visible(px: dict[str, Pixel], cfg: Config = DEFAULT_CONFIG) -> bool:
-    return color_matches(px["dialogue_icon_lower"], WHITE, cfg.color_tolerance) or color_matches(
-        px["dialogue_icon_higher"], WHITE, cfg.color_tolerance
+def is_dialogue_playing(px: dict[str, list[Pixel]], cfg: Config = DEFAULT_CONFIG) -> bool:
+    return patch_matches(
+        px["playing_icon"], cfg.playing_icon_color, cfg.color_tolerance, cfg.match_fraction
     )
 
 
-def decide(px: dict[str, Pixel] | None, cfg: Config = DEFAULT_CONFIG) -> str | None:
+def is_dialogue_option_visible(
+    px: dict[str, list[Pixel]], cfg: Config = DEFAULT_CONFIG
+) -> bool:
+    return patch_matches(
+        px["dialogue_icon_lower"], WHITE, cfg.color_tolerance, cfg.match_fraction
+    ) or patch_matches(
+        px["dialogue_icon_higher"], WHITE, cfg.color_tolerance, cfg.match_fraction
+    )
+
+
+def decide(px: dict[str, list[Pixel]] | None, cfg: Config = DEFAULT_CONFIG) -> str | None:
     """What should happen this tick?
 
     None = do nothing, "skip" = dialogue is playing, keep advancing,

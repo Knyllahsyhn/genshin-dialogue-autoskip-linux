@@ -96,6 +96,32 @@ def test_negative_tolerance_rejected(tmp_path):
         config.load(path, environ={})
 
 
+def test_patch_radius_and_match_fraction_defaults():
+    cfg = config.Config()
+    assert cfg.patch_radius == 3
+    assert cfg.match_fraction == 0.34
+
+
+def test_patch_radius_and_match_fraction_from_env(tmp_path):
+    path = write_env(tmp_path, "PATCH_RADIUS=5\nMATCH_FRACTION=0.5\n")
+    cfg = config.load(path, environ={})
+    assert cfg.patch_radius == 5
+    assert cfg.match_fraction == 0.5
+
+
+def test_match_fraction_out_of_range_rejected(tmp_path):
+    for bad in ("0", "1.5", "-0.2", "abc"):
+        path = write_env(tmp_path, f"MATCH_FRACTION={bad}\n")
+        with pytest.raises(config.ConfigError, match="MATCH_FRACTION"):
+            config.load(path, environ={})
+
+
+def test_negative_patch_radius_rejected(tmp_path):
+    path = write_env(tmp_path, "PATCH_RADIUS=-1\n")
+    with pytest.raises(config.ConfigError, match="PATCH_RADIUS"):
+        config.load(path, environ={})
+
+
 def test_unknown_key_warns_but_continues(tmp_path, capsys):
     path = write_env(tmp_path, "TYPO_KEY=1\n")
     cfg = config.load(path, environ={})
