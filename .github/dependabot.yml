@@ -1,0 +1,30 @@
+# Dependabot configuration for Knyllahsyhn/genshin-dialogue-autoskip-linux
+# Uses the "pip" ecosystem so Dependabot will check common Python dependency files
+# (requirements.txt, setup.py, pyproject.toml). If your "uv" workflow uses a specific
+# lockfile that Dependabot doesn't detect, tell me and I can adjust this config.
+
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+    open-pull-requests-limit: 5
+    # Only create PRs for direct dependencies by default; change to "all" to include transitive
+    allow:
+      - dependency-type: "direct"
+    labels:
+      - "dependencies"
+      - "dependabot"
+    commit-message:
+      prefix: "chore(deps):"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "dependabot"
