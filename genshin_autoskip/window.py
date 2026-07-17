@@ -77,12 +77,14 @@ class GenshinWindow:
         except XError:
             return None
 
-    def read_checkpoints(self) -> dict[str, detector.Pixel] | None:
+    def read_checkpoints(
+        self, checkpoints: dict[str, tuple[int, int]] | None = None
+    ) -> dict[str, detector.Pixel] | None:
         size = self.size()
         if size is None:
             return None
         result: dict[str, detector.Pixel] = {}
-        for name, (x, y) in detector.scaled_checkpoints(*size).items():
+        for name, (x, y) in detector.scaled_checkpoints(*size, checkpoints).items():
             pixel = self.read_pixel(x, y)
             if pixel is None:
                 return None

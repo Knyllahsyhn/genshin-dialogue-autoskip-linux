@@ -8,7 +8,7 @@ import time
 from random import Random
 from typing import Callable
 
-from genshin_autoskip import detector, timing
+from genshin_autoskip import config, detector, timing
 
 BREAK_CHECK_INTERVAL = 30.0
 
@@ -30,6 +30,7 @@ def main_loop(
     dry_run: bool = False,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], float] = time.perf_counter,
+    cfg: config.Config = config.DEFAULT_CONFIG,
 ) -> None:
     window = None
     last_press = now()
@@ -51,7 +52,7 @@ def main_loop(
                 continue
             reporter.window_found(window.size())
 
-        px = window.read_checkpoints()
+        px = window.read_checkpoints(cfg.checkpoints)
         if px is None:
             reporter.window_lost()
             window.close()
@@ -59,7 +60,7 @@ def main_loop(
             sleep(2.0)
             continue
 
-        action = detector.decide(px)
+        action = detector.decide(px, cfg)
         if action is None:
             sleep(0.1)
             continue
@@ -124,6 +125,12 @@ def cli() -> None:
     )
     args = parser.parse_args()
 
+    try:
+        cfg = config.load()
+    except config.ConfigError as err:
+        print(f"Configuration error: {err}")
+        sys.exit(1)
+
     errors = _preflight(args.dry_run)
     if errors:
         print("Setup incomplete:\n")
@@ -141,7 +148,8 @@ def cli() -> None:
     def on_action(action: str) -> None:
         state.status = {"run": "run", "pause": "pause", "exit": "exit"}[action]
         reporter.status_changed(state.status)
-        ui.notify(f"Auto-skip: {state.status.upper()}")
+        if cfg.notifications:
+            ui.notify(f"Auto-skip: {state.status.upper()}")
 
     keyboard = None
     if not args.dry_run:
@@ -155,7 +163,7 @@ def cli() -> None:
         try:
             main_loop(
                 GenshinWindow.find, keyboard, state, Random(),
-                reporter=reporter, dry_run=args.dry_run,
+                reporter=reporter, dry_run=args.dry_run, cfg=cfg,
             )
         except KeyboardInterrupt:
             pass

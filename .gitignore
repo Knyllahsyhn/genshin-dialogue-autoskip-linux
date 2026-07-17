@@ -5,3 +5,4 @@ __pycache__/
 calibration.png
 # internal working artifacts, kept local only
 .local
+.env

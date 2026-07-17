@@ -11,6 +11,13 @@ DIALOG_PX = {
 
 LOADING_PX = {**DIALOG_PX, "loading_screen": (255, 255, 255)}
 
+OPTIONS_PX = {
+    "playing_icon": (0, 0, 0),
+    "dialogue_icon_lower": (255, 255, 255),
+    "dialogue_icon_higher": (0, 0, 0),
+    "loading_screen": (0, 0, 0),
+}
+
 
 class FakeClock:
     """Fake time: sleep() jumps the clock forward instead of waiting."""
@@ -30,8 +37,10 @@ class FakeClock:
 class FakeWindow:
     def __init__(self, px):
         self.px = px
+        self.seen_checkpoints = []
 
-    def read_checkpoints(self):
+    def read_checkpoints(self, checkpoints=None):
+        self.seen_checkpoints.append(checkpoints)
         return self.px
 
     def size(self):
@@ -98,13 +107,15 @@ def _stop_after_sleeps(state, clock, limit):
     return sleep
 
 
-def _run_loop(get_window, keyboard, state, *, dry_run=False, sleep=None, clock=None):
+def _run_loop(get_window, keyboard, state, *, dry_run=False, sleep=None, clock=None, cfg=None):
     clock = clock or FakeClock()
     reporter = FakeReporter()
+    kwargs = {} if cfg is None else {"cfg": cfg}
     main_loop(
         get_window, keyboard, state, Random(42),
         reporter=reporter, dry_run=dry_run,
         sleep=sleep or clock.sleep, now=clock.now,
+        **kwargs,
     )
     return reporter
 
@@ -171,6 +182,33 @@ def test_dry_run_reports_but_never_presses():
     )
     assert keyboard.presses == 0
     assert ("dry", "skip") in reporter.events
+
+
+def test_auto_confirm_disabled_never_presses():
+    from genshin_autoskip.config import Config
+
+    state = AppState()
+    state.status = "run"
+    clock = FakeClock()
+    keyboard = FakeKeyboard(state, stop_after=1)
+    _run_loop(
+        lambda: FakeWindow(OPTIONS_PX), keyboard, state,
+        clock=clock, sleep=_stop_after_sleeps(state, clock, 50),
+        cfg=Config(auto_confirm=False),
+    )
+    assert keyboard.presses == 0
+
+
+def test_custom_checkpoints_reach_window():
+    from genshin_autoskip.config import Config
+
+    state = AppState()
+    state.status = "run"
+    cfg = Config()
+    window = FakeWindow(DIALOG_PX)
+    keyboard = FakeKeyboard(state, stop_after=1)
+    _run_loop(lambda: window, keyboard, state, cfg=cfg)
+    assert window.seen_checkpoints[0] is cfg.checkpoints
 
 
 def test_unreadable_window_reports_lost():
