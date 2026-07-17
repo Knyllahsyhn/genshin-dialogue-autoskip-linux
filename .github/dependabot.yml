@@ -1,7 +1,3 @@
-# Dependabot configuration for Knyllahsyhn/genshin-dialogue-autoskip-linux
-# Uses the "pip" ecosystem so Dependabot will check common Python dependency files
-# (requirements.txt, setup.py, pyproject.toml). If your "uv" workflow uses a specific
-# lockfile that Dependabot doesn't detect, tell me and I can adjust this config.
 
 version: 2
 updates:
