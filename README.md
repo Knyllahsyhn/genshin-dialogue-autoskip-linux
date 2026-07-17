@@ -6,7 +6,8 @@ Linux port of [1hubert/genshin-dialogue-autoskip](https://github.com/1hubert/gen
 
 Reads checkpoint pixels directly from the Genshin window (X11) and presses
 the interaction key (F) through a virtual uinput keyboard. When answer
-options appear, the first option is confirmed automatically. UI uses user-friendly rich terminal output.
+options appear, the first option is confirmed automatically (can be turned
+off, see Configuration). UI uses user-friendly rich terminal output.
 
 ## Requirements
 
@@ -50,6 +51,25 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 uv sync
 ```
 
+## Configuration (optional)
+
+All tunables live in a `.env` file next to the project root:
+
+```bash
+cp .env.example .env
+```
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `NOTIFICATIONS` | `true` | Desktop notifications on start/pause/quit |
+| `AUTO_CONFIRM` | `true` | Auto-confirm the first answer option; `false` waits for you |
+| `PLAYING_ICON_COLOR` | `236,229,216` | RGB of the dialogue autoplay icon |
+| `COLOR_TOLERANCE` | `10` | Allowed per-channel color deviation |
+| `CHECKPOINT_*` | see `.env.example` | Checkpoint coordinates in 1080p reference space |
+
+Every key is optional. Environment variables with the same names override
+the file. Invalid values abort startup with a message naming the key.
+
 ## Usage
 
 1. Start Genshin (windowed/borderless/fullscreen, 16:9 only for now).
@@ -61,8 +81,8 @@ uv sync
      is running. `calibration.png` marks the checkpoints with red circles.
    - Repeat with answer options visible: one of the `dialogue_icon_*`
      checkpoints must show `[OK]`.
-   - If the colors are off, adjust the values in
-     `genshin_autoskip/detector.py` (`PLAYING_ICON_COLOR`, `CHECKPOINTS`).
+   - If the colors are off, adjust `PLAYING_ICON_COLOR` / `CHECKPOINT_*`
+     in your `.env` file (see Configuration above).
 3. **Test run without key presses:**
    `uv run genshin-autoskip --dry-run` → press F8, start a dialogue,
    the terminal must log "Would now: …".
@@ -78,8 +98,8 @@ uv sync
   intentional, not a bug.
 - The tool only presses keys while the dialogue autoplay icon is visible;
   loading screens are guarded by a checkpoint pixel.
+
 ## TODO
-- Move configration for colors and notifications to env file.
 - Test/include native Wayland support for Genshin running with PROTON_WAYLAND enabled. 
 - Support for ultrawide resolutions. 
 
