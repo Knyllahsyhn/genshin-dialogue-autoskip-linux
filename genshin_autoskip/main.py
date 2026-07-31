@@ -8,7 +8,7 @@ import time
 from random import Random
 from typing import Callable
 
-from genshin_autoskip import config, detector, timing
+from genshin_autoskip import config, detector, hotkeys, injector, timing, ui, window
 
 BREAK_CHECK_INTERVAL = 30.0
 
@@ -138,9 +138,6 @@ def cli() -> None:
             print(f"  - {error}")
         sys.exit(1)
 
-    from genshin_autoskip import ui
-    from genshin_autoskip.hotkeys import HotkeyListener
-    from genshin_autoskip.window import GenshinWindow
 
     state = AppState()
     reporter = ui.make_reporter(dry_run=args.dry_run)
@@ -153,16 +150,15 @@ def cli() -> None:
 
     keyboard = None
     if not args.dry_run:
-        from genshin_autoskip.injector import VirtualKeyboard
 
-        keyboard = VirtualKeyboard()
+        keyboard = injector.VirtualKeyboard()
 
-    HotkeyListener(on_action).start()
+    hotkeys.HotkeyListener(on_action).start()
 
     with ui.terminal_echo_off(), reporter:
         try:
             main_loop(
-                GenshinWindow.find, keyboard, state, Random(),
+               window.GenshinWindow.find, keyboard, state, Random(),
                 reporter=reporter, dry_run=args.dry_run, cfg=cfg,
             )
         except KeyboardInterrupt:
