@@ -87,8 +87,9 @@ class FakeReporter:
     def break_started(self, duration):
         self.events.append(("break", duration))
 
-    def window_missing(self):
-        self.events.append(("missing",))
+    def window_missing(self, portal_due=None, portal_cancelled=False):
+        self.events.append(("missing",) if portal_due is None and not portal_cancelled
+                           else ("missing", portal_due, portal_cancelled))
 
     def window_found(self, size):
         self.events.append(("found", size))
@@ -223,3 +224,25 @@ def test_unreadable_window_reports_lost():
     )
     assert keyboard.presses == 0
     assert ("lost",) in reporter.events
+
+
+class FakeFinder:
+    portal_cancelled = False
+
+    def __call__(self):
+        return None
+
+    def portal_due(self):
+        return 12.5
+
+
+def test_missing_window_reports_portal_countdown():
+    state = AppState()
+    state.status = "run"
+    clock = FakeClock()
+    keyboard = FakeKeyboard(state, stop_after=1)
+    reporter = _run_loop(
+        FakeFinder(), keyboard, state,
+        clock=clock, sleep=_stop_after_sleeps(state, clock, 5),
+    )
+    assert ("missing", 12.5, False) in reporter.events

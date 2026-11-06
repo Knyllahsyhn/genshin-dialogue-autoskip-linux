@@ -33,8 +33,10 @@ off, see Configuration). UI uses user-friendly rich terminal output.
 
 Under XWayland the window is read directly. If the game runs with the Wine
 Wayland driver (Lutris: Graphics = wayland, or `PROTON_ENABLE_WAYLAND=1`),
-X11 cannot see it. The skipper detects the game process in Wayland mode and,
-after a 10 s grace period, requests a screencast through the portal:
+X11 cannot see it. The skipper detects the game process in Wayland mode and
+requests a screencast through the portal. A game started less than 10 s ago
+gets the rest of that grace period first, so its window exists; the panel
+shows a countdown meanwhile.
 
  - On first use the desktop shows a screen sharing dialog. Pick the Genshin
    window there. The dialog may open behind a fullscreen game (Alt+Tab).
@@ -45,7 +47,8 @@ after a 10 s grace period, requests a screencast through the portal:
    and writes a hidden desktop entry to
    `~/.local/share/applications/io.github.knyllahsyhn.GenshinAutoskip.desktop`,
    so the dialog names "Genshin Auto-Skip" as the requesting app.
- - Cancelling the dialog disables portal capture until the next start.
+ - Cancelling the dialog disables portal capture until the next start (the
+   panel says so).
  - The stream is capped at 20 frames/s to keep the compositor's copy cost low.
 
 ## One-time setup (permissions)

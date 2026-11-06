@@ -47,7 +47,11 @@ def main_loop(
         if window is None:
             window = get_window()
             if window is None:
-                reporter.window_missing()
+                due = get_window.portal_due() if hasattr(get_window, "portal_due") else None
+                reporter.window_missing(
+                    portal_due=due,
+                    portal_cancelled=getattr(get_window, "portal_cancelled", False),
+                )
                 sleep(2.0)
                 continue
             reporter.window_found(window.size())

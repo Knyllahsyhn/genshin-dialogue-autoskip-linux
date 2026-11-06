@@ -103,8 +103,20 @@ def _read_environ(path: Path) -> dict[str, str]:
     return env
 
 
-def game_mode(proc: Path = Path("/proc")) -> str | None:
-    """'wayland' or 'x11' if the game process runs, otherwise None."""
+def _process_age(proc: Path, entry: Path) -> float:
+    """Seconds since the process started (0.0 if /proc cannot tell)."""
+    try:
+        stat = (entry / "stat").read_text()
+        # Fields after the "(comm)" part; starttime is field 22 overall.
+        start_ticks = int(stat.rsplit(")", 1)[1].split()[19])
+        uptime = float((proc / "uptime").read_text().split()[0])
+        return max(0.0, uptime - start_ticks / os.sysconf("SC_CLK_TCK"))
+    except (OSError, IndexError, ValueError):
+        return 0.0
+
+
+def find_game(proc: Path = Path("/proc")) -> tuple[str, float] | None:
+    """(mode, age in seconds) of the game process, mode 'wayland' or 'x11'."""
     for entry in proc.iterdir():
         if not entry.name.isdigit():
             continue
@@ -112,47 +124,57 @@ def game_mode(proc: Path = Path("/proc")) -> str | None:
             argv0 = (entry / "cmdline").read_bytes().split(b"\0")[0]
             if not GAME_EXE_RE.search(argv0.decode("utf-8", errors="ignore")):
                 continue
-            return "wayland" if uses_wayland(_read_environ(entry / "environ")) else "x11"
+            mode = "wayland" if uses_wayland(_read_environ(entry / "environ")) else "x11"
         except OSError:
             continue
+        return mode, _process_age(proc, entry)
     return None
 
 
 class WindowFinder:
     """Picks the capture backend: X11 window if present, otherwise the portal.
 
-    The portal opens a dialog, so it is only tried once the game has run in
-    Wayland mode for ``grace`` seconds (its window exists by then), and never
-    again after the user cancelled it.
+    The portal opens a dialog, so it is only tried once the game process has
+    run in Wayland mode for ``grace`` seconds (its window exists by then), and
+    never again after the user cancelled it. A game that was started earlier
+    is captured right away.
     """
 
     def __init__(
         self,
         x11_find: Callable[[], object | None] | None = None,
         portal_open: Callable[[], object] | None = None,
-        game_mode: Callable[[], str | None] = game_mode,
+        find_game: Callable[[], tuple[str, float] | None] = find_game,
         clock: Callable[[], float] = time.monotonic,
         grace: float = 10.0,
     ) -> None:
         self._x11_find = x11_find or _x11_find
         self._portal_open = portal_open or _portal_open
-        self._game_mode = game_mode
+        self._find_game = find_game
         self._clock = clock
         self._grace = grace
         self._wayland_since: float | None = None
         self.portal_cancelled = False
         self.last_error: str | None = None
 
+    def portal_due(self) -> float | None:
+        """Clock time of the next portal attempt, None if none is pending."""
+        if self._wayland_since is None or self.portal_cancelled:
+            return None
+        return self._wayland_since + self._grace
+
     def __call__(self):
         win = self._x11_find()
         if win is not None:
             return win
-        if self._game_mode() != "wayland":
+        game = self._find_game()
+        if game is None or game[0] != "wayland":
             self._wayland_since = None
             return None
         now = self._clock()
         if self._wayland_since is None:
-            self._wayland_since = now
+            # count the grace period from the process start
+            self._wayland_since = now - game[1]
         if self.portal_cancelled or now - self._wayland_since < self._grace:
             return None
         try:

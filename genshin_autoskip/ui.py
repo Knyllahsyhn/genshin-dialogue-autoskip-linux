@@ -1,6 +1,7 @@
 """Terminal UI: status reporting, echo suppression, desktop notifications."""
 from __future__ import annotations
 
+import math
 import subprocess
 import sys
 import termios
@@ -19,6 +20,8 @@ class UiState:
     breaks: int = 0
     last_action: str | None = None
     window_size: tuple[int, int] | None = None
+    portal_due: float | None = None
+    portal_cancelled: bool = False
     started_at: float = field(default_factory=time.monotonic)
 
 
@@ -29,6 +32,20 @@ def format_uptime(seconds: float) -> str:
     if hours:
         return f"{hours}:{minutes:02d}:{secs:02d}"
     return f"{minutes:02d}:{secs:02d}"
+
+
+def window_status(
+    portal_due: float | None, portal_cancelled: bool, now: float
+) -> str:
+    """Text for a missing window, including the portal countdown."""
+    if portal_cancelled:
+        return "screen sharing cancelled (restart to retry)"
+    if portal_due is not None:
+        remaining = portal_due - now
+        if remaining > 0:
+            return f"game on Wayland, screen sharing in {math.ceil(remaining)}s"
+        return "requesting screen sharing (dialog may be behind the game)"
+    return "searching..."
 
 
 @contextmanager
@@ -68,6 +85,7 @@ class PlainReporter:
 
     def __init__(self, dry_run: bool = False) -> None:
         self.dry_run = dry_run
+        self._last_missing: str | None = None
 
     def __enter__(self) -> "PlainReporter":
         print("Genshin Dialogue Auto-Skipper")
@@ -92,13 +110,27 @@ class PlainReporter:
     def break_started(self, duration: float) -> None:
         print(f"Human-like break: {duration:.1f}s...")
 
-    def window_missing(self) -> None:
-        print("Genshin window not found — waiting...")
+    def window_missing(
+        self, portal_due: float | None = None, portal_cancelled: bool = False
+    ) -> None:
+        if portal_cancelled:
+            text = "Genshin window not found; screen sharing was cancelled (restart to retry)."
+        elif portal_due is not None:
+            wait = max(0, math.ceil(portal_due - time.monotonic()))
+            text = f"Game runs on Wayland; requesting screen sharing in {wait}s..."
+        else:
+            text = "Genshin window not found — waiting..."
+        # Print once per state instead of on every search tick.
+        key = text if portal_due is None else "portal"
+        if key != self._last_missing:
+            print(text)
+            self._last_missing = key
 
     def window_found(self, size: tuple[int, int] | None) -> None:
-        pass
+        self._last_missing = None
 
     def window_lost(self) -> None:
+        self._last_missing = None
         print("Window lost — searching again...")
 
 
@@ -141,7 +173,9 @@ class RichReporter:
         if self.state.window_size:
             window = f"{self.state.window_size[0]}x{self.state.window_size[1]}"
         else:
-            window = "searching..."
+            window = window_status(
+                self.state.portal_due, self.state.portal_cancelled, time.monotonic()
+            )
         grid.add_row("window", window)
         grid.add_row("", Text("[F8] start   [F9] pause   [F12] quit", style="dim"))
 
@@ -169,11 +203,16 @@ class RichReporter:
         self.state.breaks += 1
         self._log(f"Human-like break: {duration:.1f}s...")
 
-    def window_missing(self) -> None:
+    def window_missing(
+        self, portal_due: float | None = None, portal_cancelled: bool = False
+    ) -> None:
         self.state.window_size = None
+        self.state.portal_due = portal_due
+        self.state.portal_cancelled = portal_cancelled
 
     def window_found(self, size: tuple[int, int] | None) -> None:
         self.state.window_size = size
+        self.state.portal_due = None
 
     def window_lost(self) -> None:
         self.state.window_size = None

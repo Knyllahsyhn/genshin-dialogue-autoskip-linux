@@ -70,3 +70,19 @@ def test_reporters_implement_full_contract():
     for cls in (ui.PlainReporter, ui.RichReporter):
         for name in methods:
             assert callable(getattr(cls, name)), f"{cls.__name__}.{name} missing"
+
+
+def test_window_status_countdown():
+    assert ui.window_status(None, False, 0.0) == "searching..."
+    assert ui.window_status(10.0, False, 2.5) == "game on Wayland, screen sharing in 8s"
+    assert "requesting screen sharing" in ui.window_status(10.0, False, 10.0)
+    assert "cancelled" in ui.window_status(None, True, 0.0)
+
+
+def test_plain_reporter_prints_portal_wait_once(capsys):
+    rep = ui.PlainReporter()
+    due = time.monotonic() + 10
+    for _ in range(3):
+        rep.window_missing(portal_due=due)
+    out = capsys.readouterr().out
+    assert out.count("requesting screen sharing in") == 1

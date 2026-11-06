@@ -66,9 +66,12 @@ def test_uses_wayland_proton():
     assert not window.uses_wayland({})
 
 
-def _fake_proc(tmp_path, pid, cmdline, environ):
+def _fake_proc(tmp_path, pid, cmdline, environ, start_ticks=None):
     d = tmp_path / str(pid)
     d.mkdir()
+    if start_ticks is not None:
+        rest = " ".join(["S"] + ["0"] * 18 + [str(start_ticks)] + ["0"] * 5)
+        (d / "stat").write_text(f"{pid} (Genshin Impact) {rest}\n")
     (d / "cmdline").write_bytes(cmdline.encode() + b"\0")
     (d / "environ").write_bytes(b"".join(f"{k}={v}".encode() + b"\0" for k, v in environ.items()))
 
@@ -80,13 +83,24 @@ def test_game_mode_detects_wayland_game(tmp_path):
         {"PROTON_ENABLE_WAYLAND": "1"},
     )
     (tmp_path / "self").mkdir()
-    assert window.game_mode(tmp_path) == "wayland"
+    assert window.find_game(tmp_path) == ("wayland", 0.0)
 
 
 def test_game_mode_x11_and_missing(tmp_path):
-    assert window.game_mode(tmp_path) is None
+    assert window.find_game(tmp_path) is None
     _fake_proc(tmp_path, 3, "Z:\\YuanShen.exe", {})
-    assert window.game_mode(tmp_path) == "x11"
+    assert window.find_game(tmp_path) == ("x11", 0.0)
+
+
+def test_find_game_reports_process_age(tmp_path):
+    import os
+
+    hz = os.sysconf("SC_CLK_TCK")
+    (tmp_path / "uptime").write_text("1000.00 5000.00\n")
+    _fake_proc(tmp_path, 4, "GenshinImpact.exe", {}, start_ticks=900 * hz)
+    mode, age = window.find_game(tmp_path)
+    assert mode == "x11"
+    assert age == 100.0
 
 
 class _Clock:
@@ -97,9 +111,11 @@ class _Clock:
         return self.t
 
 
-def _finder(mode, portal, clock, x11=lambda: None):
+def _finder(mode, portal, clock, x11=lambda: None, age=0.0):
     return window.WindowFinder(
-        x11_find=x11, portal_open=portal, game_mode=lambda: mode, clock=clock, grace=10.0
+        x11_find=x11, portal_open=portal,
+        find_game=lambda: None if mode is None else (mode, age),
+        clock=clock, grace=10.0,
     )
 
 
@@ -132,7 +148,8 @@ def test_finder_resets_grace_when_game_exits():
     mode = {"m": "wayland"}
     finder = window.WindowFinder(
         x11_find=lambda: None, portal_open=lambda: "w",
-        game_mode=lambda: mode["m"], clock=clock, grace=10.0,
+        find_game=lambda: None if mode["m"] is None else (mode["m"], 0.0),
+        clock=clock, grace=10.0,
     )
     finder()
     mode["m"] = None
@@ -180,3 +197,31 @@ def test_finder_retries_after_portal_error():
     clock.t = 22.0
     finder()
     assert len(calls) == 2
+
+
+def test_finder_portal_due():
+    clock = _Clock()
+    clock.t = 3.0
+    finder = _finder("wayland", lambda: None, clock)
+    assert finder.portal_due() is None
+    finder()
+    assert finder.portal_due() == 13.0
+    cancelled = _finder("wayland", lambda: (_ for _ in ()).throw(window.PortalCancelled("x")), clock)
+    cancelled()
+    clock.t = 20.0
+    cancelled()
+    assert cancelled.portal_due() is None
+
+
+def test_finder_skips_grace_for_running_game():
+    finder = _finder("wayland", lambda: "portalwin", _Clock(), age=300.0)
+    assert finder() == "portalwin"
+
+
+def test_finder_waits_rest_of_grace_for_fresh_game():
+    clock = _Clock()
+    finder = _finder("wayland", lambda: "portalwin", clock, age=4.0)
+    assert finder() is None
+    assert finder.portal_due() == 6.0
+    clock.t = 6.5
+    assert finder() == "portalwin"
