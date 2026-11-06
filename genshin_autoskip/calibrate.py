@@ -8,7 +8,7 @@ import sys
 from PIL import ImageDraw
 
 from genshin_autoskip import config, detector
-from genshin_autoskip.window import GenshinWindow
+from genshin_autoskip.window import WindowFinder
 
 
 def main() -> int:
@@ -25,10 +25,14 @@ def main() -> int:
         "loading_screen": detector.WHITE,
     }
 
-    win = GenshinWindow.find()
+    finder = WindowFinder(grace=0.0)
+    win = finder()
     if win is None:
         print("Genshin window not found. Is the game running?")
+        if finder.last_error:
+            print(f"Portal capture failed: {finder.last_error}")
         return 1
+    print(f"Capture backend: {type(win).__name__}")
 
     size = win.size()
     image = win.screenshot()
@@ -59,6 +63,7 @@ def main() -> int:
             (x - radius, y - radius, x + radius, y + radius), outline=(255, 0, 0), width=2
         )
 
+    win.close()
     image.save("calibration.png")
     print("\nScreenshot with markers: calibration.png")
     print("Note: 'loading_screen' should be white ONLY on loading screens,")

@@ -96,13 +96,17 @@ def _preflight(dry_run: bool) -> list[str]:
     from genshin_autoskip import hotkeys
 
     errors = []
+    x11_ok = False
     try:
         from Xlib import display
 
         display.Display().close()
+        x11_ok = True
     except Exception:
+        pass
+    if not x11_ok and not os.environ.get("WAYLAND_DISPLAY"):
         errors.append(
-            "No X display reachable. Is the session running with XWayland (DISPLAY set)?"
+            "Neither an X display nor a Wayland session found (DISPLAY/WAYLAND_DISPLAY unset)."
         )
     if not hotkeys.find_keyboards():
         errors.append(
@@ -158,7 +162,7 @@ def cli() -> None:
     with ui.terminal_echo_off(), reporter:
         try:
             main_loop(
-               window.GenshinWindow.find, keyboard, state, Random(),
+                window.WindowFinder(), keyboard, state, Random(),
                 reporter=reporter, dry_run=args.dry_run, cfg=cfg,
             )
         except KeyboardInterrupt:

@@ -33,3 +33,150 @@ def test_matches_title_rejects_other_windows():
 def test_decode_zpixmap_bgrx():
     # 32-bit ZPixmap little-endian: byte order B, G, R, X
     assert window.decode_zpixmap_rgb(bytes([10, 20, 30, 0])) == (30, 20, 10)
+
+
+def test_clamp_patch_inside():
+    assert window.clamp_patch(10, 10, 2, (100, 50)) == (8, 8, 5, 5)
+
+
+def test_clamp_patch_at_edges():
+    assert window.clamp_patch(0, 49, 2, (100, 50)) == (0, 47, 3, 3)
+
+
+def test_clamp_patch_outside_window():
+    assert window.clamp_patch(200, 10, 2, (100, 50)) is None
+
+
+def test_patch_from_frame_respects_stride():
+    # 3x2 frame, BGRx, stride padded to 16 bytes per row
+    width, stride = 3, 16
+    rows = []
+    for y in range(2):
+        row = b"".join(bytes([x, y, 100 + x + 10 * y, 0]) for x in range(width))
+        rows.append(row + b"\xee" * (stride - len(row)))
+    frame = b"".join(rows)
+    patch = window.patch_from_frame(frame, stride, 1, 0, 2, 2)
+    assert patch == [(101, 0, 1), (102, 0, 2), (111, 1, 1), (112, 1, 2)]
+
+
+def test_uses_wayland_proton():
+    assert window.uses_wayland({"PROTON_ENABLE_WAYLAND": "1"})
+    assert window.uses_wayland({"WINE_GRAPHICS_DRIVER": "wayland"})
+    assert not window.uses_wayland({"PROTON_ENABLE_WAYLAND": "0"})
+    assert not window.uses_wayland({})
+
+
+def _fake_proc(tmp_path, pid, cmdline, environ):
+    d = tmp_path / str(pid)
+    d.mkdir()
+    (d / "cmdline").write_bytes(cmdline.encode() + b"\0")
+    (d / "environ").write_bytes(b"".join(f"{k}={v}".encode() + b"\0" for k, v in environ.items()))
+
+
+def test_game_mode_detects_wayland_game(tmp_path):
+    _fake_proc(tmp_path, 1, "C:\\HoYoPlay\\HYP.exe", {"PROTON_ENABLE_WAYLAND": "1"})
+    _fake_proc(
+        tmp_path, 2, "W:\\Games\\Genshin Impact game\\GenshinImpact.exe login=1",
+        {"PROTON_ENABLE_WAYLAND": "1"},
+    )
+    (tmp_path / "self").mkdir()
+    assert window.game_mode(tmp_path) == "wayland"
+
+
+def test_game_mode_x11_and_missing(tmp_path):
+    assert window.game_mode(tmp_path) is None
+    _fake_proc(tmp_path, 3, "Z:\\YuanShen.exe", {})
+    assert window.game_mode(tmp_path) == "x11"
+
+
+class _Clock:
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+def _finder(mode, portal, clock, x11=lambda: None):
+    return window.WindowFinder(
+        x11_find=x11, portal_open=portal, game_mode=lambda: mode, clock=clock, grace=10.0
+    )
+
+
+def test_finder_prefers_x11():
+    calls = []
+    finder = _finder("wayland", lambda: calls.append(1), _Clock(), x11=lambda: "x11win")
+    assert finder() == "x11win"
+    assert calls == []
+
+
+def test_finder_waits_grace_before_portal():
+    clock = _Clock()
+    finder = _finder("wayland", lambda: "portalwin", clock)
+    assert finder() is None
+    clock.t = 5.0
+    assert finder() is None
+    clock.t = 10.5
+    assert finder() == "portalwin"
+
+
+def test_finder_skips_portal_for_x11_game():
+    clock = _Clock()
+    finder = _finder("x11", lambda: "portalwin", clock)
+    clock.t = 100.0
+    assert finder() is None
+
+
+def test_finder_resets_grace_when_game_exits():
+    clock = _Clock()
+    mode = {"m": "wayland"}
+    finder = window.WindowFinder(
+        x11_find=lambda: None, portal_open=lambda: "w",
+        game_mode=lambda: mode["m"], clock=clock, grace=10.0,
+    )
+    finder()
+    mode["m"] = None
+    clock.t = 20.0
+    assert finder() is None
+    mode["m"] = "wayland"
+    assert finder() is None
+    clock.t = 31.0
+    assert finder() == "w"
+
+
+def test_finder_stops_after_cancel():
+    clock = _Clock()
+    calls = []
+
+    def portal():
+        calls.append(1)
+        raise window.PortalCancelled("user cancelled")
+
+    finder = _finder("wayland", portal, clock)
+    finder()
+    clock.t = 11.0
+    assert finder() is None
+    clock.t = 50.0
+    assert finder() is None
+    assert len(calls) == 1
+    assert finder.portal_cancelled
+
+
+def test_finder_retries_after_portal_error():
+    clock = _Clock()
+    calls = []
+
+    def portal():
+        calls.append(1)
+        raise window.PortalError("no frame")
+
+    finder = _finder("wayland", portal, clock)
+    finder()
+    clock.t = 11.0
+    finder()
+    clock.t = 12.0
+    finder()  # backing off, no new dialog
+    assert len(calls) == 1
+    clock.t = 22.0
+    finder()
+    assert len(calls) == 2

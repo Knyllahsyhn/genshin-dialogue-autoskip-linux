@@ -1,10 +1,12 @@
 # Genshin Dialogue Autoskip (Linux)
 
-Dialogue auto-skipper for Genshin Impact running under Wine (XWayland) -
-works with Steam/HoYoPlay and Lutris setups.
+Dialogue auto-skipper for Genshin Impact running under Wine, either through
+XWayland or as a native Wayland client (Proton Wayland driver). Works with
+Steam/HoYoPlay and Lutris setups.
 Linux port of [1hubert/genshin-dialogue-autoskip](https://github.com/1hubert/genshin-dialogue-autoskip).
 
-Reads checkpoint pixels directly from the Genshin window (X11) and presses
+Reads checkpoint pixels from the Genshin window (X11 directly, or a PipeWire
+stream through the ScreenCast portal under native Wayland) and presses
 the interaction key (F) through a virtual uinput keyboard. When answer
 options appear, the first option is confirmed automatically (can be turned
 off, see Configuration). UI uses user-friendly rich terminal output.
@@ -14,15 +16,37 @@ off, see Configuration). UI uses user-friendly rich terminal output.
 ### System Requirements
 
  - OS: Linux (tested on CachyOS w/ 7.1.3-2 kernel)
- - Display: Genshin running through XWayland, native Wayland not tested 
+ - Display: Genshin running through XWayland, or natively on Wayland with
+   xdg-desktop-portal (tested with KDE Plasma) and the GStreamer PipeWire
+   plugin (`gst-plugin-pipewire`)
  - Privileges: user in `input` group
 
 ### Software Requirements
 
  - Python 3.11+
  - uv package manager
+ - For building PyGObject: `gobject-introspection` and `cairo` (system packages)
  - Genshin Impact installed via Steam/Lutris (wine) and running
 
+
+## Native Wayland (portal capture)
+
+Under XWayland the window is read directly. If the game runs with the Wine
+Wayland driver (Lutris: Graphics = wayland, or `PROTON_ENABLE_WAYLAND=1`),
+X11 cannot see it. The skipper detects the game process in Wayland mode and,
+after a 10 s grace period, requests a screencast through the portal:
+
+ - On first use the desktop shows a screen sharing dialog. Pick the Genshin
+   window there. The dialog may open behind a fullscreen game (Alt+Tab).
+ - The portal's restore token is stored in
+   `~/.local/state/genshin-autoskip/portal-restore-token`; later sessions
+   reuse it without a dialog. Delete the file to choose again.
+ - The skipper registers with the portal as `io.github.knyllahsyhn.GenshinAutoskip`
+   and writes a hidden desktop entry to
+   `~/.local/share/applications/io.github.knyllahsyhn.GenshinAutoskip.desktop`,
+   so the dialog names "Genshin Auto-Skip" as the requesting app.
+ - Cancelling the dialog disables portal capture until the next start.
+ - The stream is capped at 20 frames/s to keep the compositor's copy cost low.
 
 ## One-time setup (permissions)
 

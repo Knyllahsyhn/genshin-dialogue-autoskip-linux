@@ -1,13 +1,14 @@
 [project]
 name = "genshin-autoskip"
 version = "0.1.0"
-description = "Dialogue auto-skipper for Genshin Impact on Linux (Wine/XWayland)"
+description = "Dialogue auto-skipper for Genshin Impact on Linux (Wine, XWayland or native Wayland)"
 requires-python = ">=3.11"
 dependencies = [
     "python-xlib>=0.33",
     "evdev>=1.7",
     "pillow>=10",
     "rich>=13",
+    "pygobject>=3.50",
 ]
 
 [project.scripts]

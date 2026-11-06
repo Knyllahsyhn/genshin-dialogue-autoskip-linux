@@ -1,5 +1,16 @@
-"""X11 access to the Genshin XWayland window (search, geometry, pixels)."""
+"""Access to the Genshin window: X11 backend, backend selection, shared helpers.
+
+The X11 backend reads XWayland windows directly. A game running as a native
+Wayland client is invisible to X11; ``WindowFinder`` then falls back to the
+ScreenCast portal backend in ``portal.py``.
+"""
 from __future__ import annotations
+
+import os
+import re
+import time
+from pathlib import Path
+from typing import Callable
 
 from Xlib import X, display
 from Xlib.error import XError
@@ -38,7 +49,164 @@ def decode_zpixmap_patch(data: bytes, count: int) -> list[tuple[int, int, int]]:
     return [(data[i + 2], data[i + 1], data[i]) for i in range(0, count * 4, 4)]
 
 
-class GenshinWindow:
+# Executable of the game client (global and CN build) at the start of argv[0].
+GAME_EXE_RE = re.compile(r"(?:^|[/\\])(?:genshinimpact|yuanshen)\.exe(?:\s|$)", re.IGNORECASE)
+
+
+class PortalError(Exception):
+    """Portal capture could not be set up (retried on the next search)."""
+
+
+class PortalCancelled(PortalError):
+    """The user dismissed the portal dialog (not retried until restart)."""
+
+
+def clamp_patch(
+    cx: int, cy: int, radius: int, size: tuple[int, int]
+) -> tuple[int, int, int, int] | None:
+    """(x0, y0, w, h) of the (2*radius+1) square around (cx, cy), clamped to size."""
+    width, height = size
+    x0 = max(0, cx - radius)
+    y0 = max(0, cy - radius)
+    x1 = min(width, cx + radius + 1)
+    y1 = min(height, cy + radius + 1)
+    w, h = x1 - x0, y1 - y0
+    if w <= 0 or h <= 0:
+        return None
+    return x0, y0, w, h
+
+
+def patch_from_frame(
+    data: bytes, stride: int, x0: int, y0: int, w: int, h: int
+) -> list[tuple[int, int, int]]:
+    """RGB pixels of a rectangle inside a BGRx frame with the given row stride."""
+    pixels: list[tuple[int, int, int]] = []
+    for y in range(y0, y0 + h):
+        start = y * stride + x0 * 4
+        pixels.extend(decode_zpixmap_patch(data[start : start + w * 4], w))
+    return pixels
+
+
+def uses_wayland(environ: dict[str, str]) -> bool:
+    """Whether a Wine/Proton process runs with the native Wayland driver."""
+    if environ.get("PROTON_ENABLE_WAYLAND") == "1":
+        return True
+    return "wayland" in environ.get("WINE_GRAPHICS_DRIVER", "").lower()
+
+
+def _read_environ(path: Path) -> dict[str, str]:
+    env: dict[str, str] = {}
+    for entry in path.read_bytes().split(b"\0"):
+        key, sep, value = entry.decode("utf-8", errors="ignore").partition("=")
+        if sep:
+            env[key] = value
+    return env
+
+
+def game_mode(proc: Path = Path("/proc")) -> str | None:
+    """'wayland' or 'x11' if the game process runs, otherwise None."""
+    for entry in proc.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            argv0 = (entry / "cmdline").read_bytes().split(b"\0")[0]
+            if not GAME_EXE_RE.search(argv0.decode("utf-8", errors="ignore")):
+                continue
+            return "wayland" if uses_wayland(_read_environ(entry / "environ")) else "x11"
+        except OSError:
+            continue
+    return None
+
+
+class WindowFinder:
+    """Picks the capture backend: X11 window if present, otherwise the portal.
+
+    The portal opens a dialog, so it is only tried once the game has run in
+    Wayland mode for ``grace`` seconds (its window exists by then), and never
+    again after the user cancelled it.
+    """
+
+    def __init__(
+        self,
+        x11_find: Callable[[], object | None] | None = None,
+        portal_open: Callable[[], object] | None = None,
+        game_mode: Callable[[], str | None] = game_mode,
+        clock: Callable[[], float] = time.monotonic,
+        grace: float = 10.0,
+    ) -> None:
+        self._x11_find = x11_find or _x11_find
+        self._portal_open = portal_open or _portal_open
+        self._game_mode = game_mode
+        self._clock = clock
+        self._grace = grace
+        self._wayland_since: float | None = None
+        self.portal_cancelled = False
+        self.last_error: str | None = None
+
+    def __call__(self):
+        win = self._x11_find()
+        if win is not None:
+            return win
+        if self._game_mode() != "wayland":
+            self._wayland_since = None
+            return None
+        now = self._clock()
+        if self._wayland_since is None:
+            self._wayland_since = now
+        if self.portal_cancelled or now - self._wayland_since < self._grace:
+            return None
+        try:
+            return self._portal_open()
+        except PortalCancelled as err:
+            self.portal_cancelled = True
+            self.last_error = str(err)
+        except PortalError as err:
+            self.last_error = str(err)
+            # back off: wait another grace period before the next dialog
+            self._wayland_since = now
+        return None
+
+
+def _x11_find():
+    if not os.environ.get("DISPLAY"):
+        return None
+    try:
+        return GenshinWindow.find()
+    except Exception:
+        return None
+
+
+def _portal_open():
+    try:
+        from genshin_autoskip import portal
+    except ImportError as err:
+        raise PortalCancelled(f"portal backend unavailable: {err}") from err
+    return portal.PortalWindow.open()
+
+
+class _PatchReader:
+    """read_checkpoints on top of size() and read_patch(), shared by backends."""
+
+    def read_checkpoints(
+        self,
+        checkpoints: dict[str, tuple[int, int]] | None = None,
+        radius: int = 3,
+    ) -> dict[str, list[detector.Pixel]] | None:
+        size = self.size()
+        if size is None:
+            return None
+        result: dict[str, list[detector.Pixel]] = {}
+        for name, (x, y) in detector.scaled_checkpoints(*size, checkpoints).items():
+            patch = self.read_patch(x, y, radius, size)
+            if patch is None:
+                return None
+            result[name] = patch
+        return result
+
+
+class GenshinWindow(_PatchReader):
+    """X11 backend (game running through XWayland)."""
+
     def __init__(self, disp: display.Display, win) -> None:
         self._display = disp
         self._window = win
@@ -89,35 +257,15 @@ class GenshinWindow:
         size = size or self.size()
         if size is None:
             return None
-        width, height = size
-        x0 = max(0, cx - radius)
-        y0 = max(0, cy - radius)
-        x1 = min(width, cx + radius + 1)
-        y1 = min(height, cy + radius + 1)
-        w, h = x1 - x0, y1 - y0
-        if w <= 0 or h <= 0:
+        rect = clamp_patch(cx, cy, radius, size)
+        if rect is None:
             return None
+        x0, y0, w, h = rect
         try:
             img = self._window.get_image(x0, y0, w, h, X.ZPixmap, 0xFFFFFFFF)
             return decode_zpixmap_patch(img.data, w * h)
         except XError:
             return None
-
-    def read_checkpoints(
-        self,
-        checkpoints: dict[str, tuple[int, int]] | None = None,
-        radius: int = 3,
-    ) -> dict[str, list[detector.Pixel]] | None:
-        size = self.size()
-        if size is None:
-            return None
-        result: dict[str, list[detector.Pixel]] = {}
-        for name, (x, y) in detector.scaled_checkpoints(*size, checkpoints).items():
-            patch = self.read_patch(x, y, radius, size)
-            if patch is None:
-                return None
-            result[name] = patch
-        return result
 
     def screenshot(self):
         """The whole window as a PIL image (only used by calibrate.py)."""
